@@ -2819,6 +2819,46 @@
     // Major Animated Campaign Routes per Stage
     function stageName(n, s) { return (n.names && n.names[s]) || n.name; }
 
+    // Label level-of-detail, like a real map: capitals/states first, then
+    // prefectures & passes, then counties & forts as you zoom in. Within a
+    // level, labels that would overlap on screen yield to higher ranks.
+    const RANK0_IDS = new Set(['shangjing', 'youzhou', 'tongzhou', 'bingzhou', 'qingzhou', 'ganzhou', 'nanzhou', 'yunzhou', 'yizhou2', 'yangzhou', 'lingzhou', 'yanzhou', 'xuzhou', 'jizhou', 'donghu', 'xiongnu', 'dayuezhi', 'nanyue']);
+    function nodeRank(n) {
+      if (RANK0_IDS.has(n.id)) return 0;
+      const t = n.type || '';
+      if (t.includes('郡') || t === '雄关' || t === '决战古战场' || t === '士族祖庭' || t === '重镇' || t === '商镇' || t === '必争之地') return 1;
+      return 2;
+    }
+    function updateLabelVisibility(k) {
+      if (typeof gLabels === 'undefined' || !gLabels || !svg || !svg.node()) return;
+      const maxRank = k < 1.15 ? 0 : (k < 2.0 ? 1 : 2);
+      const t = d3.zoomTransform(svg.node());
+      const stageIdx = state.stage;
+      const items = [];
+      gLabels.selectAll('g.node-label-group').each(function(d) {
+        const rank = nodeRank(d.node);
+        if (rank > maxRank && d.node.id !== state.selectedNodeId) {
+          d3.select(this).style('display', 'none');
+          return;
+        }
+        const name = stageName(d.node, stageIdx);
+        const w = name.length * 10.5 + 10, h = 16;
+        const dir = d.node.labelDir || 'right';
+        let ox = 10, oy = -8;
+        if (dir === 'left') ox = -w - 10;
+        else if (dir === 'top') { ox = -w / 2; oy = -23; }
+        else if (dir === 'bottom') { ox = -w / 2; oy = 9; }
+        items.push({ el: this, d, rank, x: t.x + d.x * t.k + ox, y: t.y + d.y * t.k + oy, w, h });
+      });
+      items.sort((a, b) => ((a.d.node.id === state.selectedNodeId) ? 0 : 1) - ((b.d.node.id === state.selectedNodeId) ? 0 : 1) || a.rank - b.rank);
+      const kept = [];
+      for (const it of items) {
+        const hit = kept.some(r => it.x < r.x + r.w + 3 && it.x + it.w + 3 > r.x && it.y < r.y + r.h + 3 && it.y + it.h + 3 > r.y);
+        d3.select(it.el).style('display', hit ? 'none' : null);
+        if (!hit) kept.push(it);
+      }
+    }
+
     const CAMPAIGNS = [
   [
     {
@@ -3414,6 +3454,7 @@
                 _csLastK = _csPendingK;
                 applyCounterScale(_csPendingK);
               }
+              updateLabelVisibility(_csPendingK);
             });
           }
         })
@@ -3421,6 +3462,7 @@
           svg.classed('is-zooming', false);
           _csLastK = event.transform.k;
           applyCounterScale(event.transform.k);
+          updateLabelVisibility(event.transform.k);
         });
 
       svg.call(zoomBehavior);
@@ -3852,6 +3894,7 @@
       if (window.applyCounterScale) {
         window.applyCounterScale(currentTransform.k || 1);
       }
+      updateLabelVisibility(currentTransform.k || 1);
     }
 
     // =========================================================================
