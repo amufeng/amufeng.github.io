@@ -316,9 +316,9 @@
     "name": "萧尘（战狼军）",
     "short": "萧尘·战狼",
     "seal": "萧",
-    "color": "#b82519",
-    "nightColor": "#e03c2d",
-    "fillOpacity": 0.36,
+    "color": "#a8321c",
+    "nightColor": "#cf4433",
+    "fillOpacity": 0.3,
     "desc": "主角萧尘从青云县壮丁起家，历任战狼营统领、镇国大将军、摄政王，统御战狼轻重骑、虎贲、龙啸、豹玄、玄武、巾帼营。"
   },
   "imperial": {
@@ -326,9 +326,9 @@
     "name": "大乾皇室",
     "short": "大乾皇室",
     "seal": "乾",
-    "color": "#c98a1c",
-    "nightColor": "#e5a93c",
-    "fillOpacity": 0.3,
+    "color": "#b57e1c",
+    "nightColor": "#d29f33",
+    "fillOpacity": 0.28,
     "desc": "建国271年的大乾朝廷。景泰帝毒发驾崩后，大皇子景云锐登基；后期“四皇子”登基，萧尘受封摄政王总揽朝纲。"
   },
   "clans": {
@@ -336,9 +336,9 @@
     "name": "八大士族",
     "short": "八大士族",
     "seal": "阀",
-    "color": "#6b3fa0",
-    "nightColor": "#8b5cf6",
-    "fillOpacity": 0.3,
+    "color": "#6e4f72",
+    "nightColor": "#9578b8",
+    "fillOpacity": 0.28,
     "desc": "以陈文言、崔万山、汝南李氏、方氏等为首的门阀士族，盘踞徐州延陵郡与朝堂中枢，后于通山平原及方党清算中覆灭。"
   },
   "princes": {
@@ -346,9 +346,9 @@
     "name": "藩王势力",
     "short": "诸藩王",
     "seal": "藩",
-    "color": "#235789",
-    "nightColor": "#3b82f6",
-    "fillOpacity": 0.3,
+    "color": "#37536e",
+    "nightColor": "#5d84ad",
+    "fillOpacity": 0.28,
     "desc": "以荣亲王（飞云军）、甘州王、果郡王为代表的拥兵藩镇，踞守冀州、甘州等地与萧尘及皇室逐鹿中原。"
   },
   "hanfu": {
@@ -356,9 +356,9 @@
     "name": "幽州韩复",
     "short": "幽州韩复",
     "seal": "韩",
-    "color": "#2d6e5e",
-    "nightColor": "#16a085",
-    "fillOpacity": 0.32,
+    "color": "#43755c",
+    "nightColor": "#4da58c",
+    "fillOpacity": 0.3,
     "desc": "幽州边军统帅韩复，坐镇幽州城与芝宁关防线，老谋深算；第655章幽州易主，第787章重伤身亡。"
   },
   "steppe": {
@@ -366,9 +366,9 @@
     "name": "东胡 / 匈奴",
     "short": "漠北诸部",
     "seal": "胡",
-    "color": "#a85518",
-    "nightColor": "#d97706",
-    "fillOpacity": 0.28,
+    "color": "#7d6f35",
+    "nightColor": "#b08a42",
+    "fillOpacity": 0.26,
     "desc": "北方游牧势力，包括东胡、匈奴王庭（呼延赞）、段氏部族（段天麟/段威）、宇文部族、邱林部族、赫连铁等，后期陆续归附或被击破。"
   },
   "foreign": {
@@ -376,8 +376,8 @@
     "name": "域外诸国",
     "short": "四夷邻邦",
     "seal": "夷",
-    "color": "#525b66",
-    "nightColor": "#64748b",
+    "color": "#5b6672",
+    "nightColor": "#77828e",
     "fillOpacity": 0.24,
     "desc": "大乾周边邻邦：西域大月氏国（曾占云州四郡，第1329章遣使入京议和）、南方南越国（第1331章出兵五十万压南陵关）。"
   }
@@ -3257,9 +3257,9 @@
 
       // 2. Ocean & Land Gradients for Silk Mode vs Night Mode
       const oceanSilkGrad = defs.append('radialGradient').attr('id', 'oceanSilkGrad').attr('cx', '50%').attr('cy', '50%').attr('r', '75%');
-      oceanSilkGrad.append('stop').attr('offset', '0%').attr('stop-color', '#c5d1c8');
-      oceanSilkGrad.append('stop').attr('offset', '70%').attr('stop-color', '#aebdb4');
-      oceanSilkGrad.append('stop').attr('offset', '100%').attr('stop-color', '#94a69c');
+      oceanSilkGrad.append('stop').attr('offset', '0%').attr('stop-color', '#ccd6cc');
+      oceanSilkGrad.append('stop').attr('offset', '70%').attr('stop-color', '#b9c6ba');
+      oceanSilkGrad.append('stop').attr('offset', '100%').attr('stop-color', '#a5b5a8');
 
       const oceanNightGrad = defs.append('radialGradient').attr('id', 'oceanNightGrad').attr('cx', '50%').attr('cy', '50%').attr('r', '75%');
       oceanNightGrad.append('stop').attr('offset', '0%').attr('stop-color', '#0f172a');
@@ -3268,7 +3268,7 @@
       const landSilkGrad = defs.append('radialGradient').attr('id', 'landSilkGrad').attr('cx', '48%').attr('cy', '45%').attr('r', '68%');
       landSilkGrad.append('stop').attr('offset', '0%').attr('stop-color', '#f2e6cc');
       landSilkGrad.append('stop').attr('offset', '65%').attr('stop-color', '#e5d4b0');
-      landSilkGrad.append('stop').attr('offset', '100%').attr('stop-color', '#d2bc92');
+      landSilkGrad.append('stop').attr('offset', '100%').attr('stop-color', '#d6c096');
 
       // 3. Mountain Gradients (青绿山水石绿/赭墨渐变)
       const mGradSilk = defs.append('linearGradient').attr('id', 'mountainGradSilk').attr('x1', '0%').attr('y1', '0%').attr('x2', '0%').attr('y2', '100%');
