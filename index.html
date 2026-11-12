@@ -1,0 +1,2163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>《悍卒！从壮丁开始逐鹿中原》大乾九边四夷高精度动态古舆图</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@500;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-ink: #1a1410;
+      --silk-bg: #e6d7b8;
+      --silk-dark: #d4c098;
+      --ink-deep: #231911;
+      --ink-muted: #5a4634;
+      --cinnabar: #b3241a;
+      --gold-brass: #b8862d;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #16110c;
+      color: #f3ead8;
+      font-family: 'Noto Serif SC', 'Inter', -apple-system, BlinkMacSystemFont, "Songti SC", serif;
+      overflow-x: hidden;
+    }
+    .font-serif-title {
+      font-family: 'Noto Serif SC', 'Songti SC', Georgia, serif;
+    }
+    .font-calligraphy {
+      font-family: 'Ma Shan Zheng', 'Kaiti SC', 'STKaiti', 'Noto Serif SC', cursive, serif;
+    }
+    .font-sans-ui {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+    }
+
+    /* Ancient woodblock & brass frame styling */
+    .ancient-header {
+      background: linear-gradient(180deg, #211811 0%, #17100b 100%);
+      border-bottom: 2px solid #8c6628;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+    }
+    .ancient-panel {
+      background:
+        radial-gradient(circle at top right, rgba(184, 134, 45, 0.08), transparent 60%),
+        linear-gradient(180deg, #1e1610 0%, #150f0a 100%);
+    }
+    .parchment-card {
+      background: linear-gradient(135deg, rgba(42, 31, 21, 0.92) 0%, rgba(28, 20, 14, 0.95) 100%);
+      border: 1px solid rgba(184, 134, 45, 0.32);
+      box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Animated campaign brushstroke flow */
+    @keyframes dashFlow {
+      to { stroke-dashoffset: -44; }
+    }
+    .campaign-arc {
+      stroke-dasharray: 10 6;
+      animation: dashFlow 1.35s linear infinite;
+    }
+    @keyframes riverFlow {
+      to { stroke-dashoffset: -60; }
+    }
+    .river-shimmer {
+      stroke-dasharray: 12 18;
+      animation: riverFlow 6s linear infinite;
+    }
+    @keyframes pulseRing {
+      0% { transform: scale(0.95); opacity: 0.9; }
+      75% { transform: scale(2.2); opacity: 0; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    .pulse-circle {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: pulseRing 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #140e09; }
+    ::-webkit-scrollbar-thumb { background: #785622; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #b8862d; }
+
+    .voronoi-cell {
+      transition: fill 0.55s ease, fill-opacity 0.35s ease, stroke 0.35s ease;
+    }
+    .node-marker {
+      cursor: pointer;
+      transition: opacity 0.25s ease;
+    }
+    .node-label-group {
+      pointer-events: none;
+      user-select: none;
+      transition: opacity 0.25s ease;
+    }
+    .seal-stamp {
+      border: 2px solid rgba(179, 36, 26, 0.82);
+      color: rgba(179, 36, 26, 0.88);
+      background: rgba(255, 245, 230, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(179, 36, 26, 0.35);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#16110c] text-[#f3ead8]">
+
+  <!-- Top Imperial Military Atlas Header -->
+  <header class="ancient-header sticky top-0 z-30 px-3 sm:px-5 py-2.5">
+    <div class="max-w-[1640px] mx-auto flex flex-wrap items-center justify-between gap-2.5">
+      <div class="flex items-center gap-3 min-w-0">
+        <!-- Cinnabar Imperial Seal Icon -->
+        <div class="w-9 h-9 rounded bg-[#9e1f16] flex flex-col items-center justify-center border-2 border-[#d4a359] shadow-lg shrink-0 leading-none">
+          <span class="font-calligraphy text-[#fcecd2] text-sm tracking-tighter">镇国</span>
+          <span class="font-calligraphy text-[#fcecd2] text-xs tracking-tighter -mt-0.5">舆图</span>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="font-serif-title text-sm sm:text-lg font-black tracking-wider text-[#f7e7c4] truncate">
+              《悍卒！从壮丁开始逐鹿中原》大乾九边四夷古舆图
+            </h1>
+            <span class="hidden sm:inline-block text-[10px] px-1.5 py-0.5 rounded bg-[#9e1f16]/30 border border-[#d4a359]/40 text-[#f3d299] shrink-0">
+              绢本青绿设色 · 计里画方
+            </span>
+          </div>
+          <p class="text-[11px] text-[#b8a386] truncate font-sans-ui">
+            大垄兄啊 著 · 第1章至第1335章全卷推演 · 职方司山川城池兵棋沙盘
+          </p>
+        </div>
+      </div>
+
+      <!-- Search + Camera Presets + Style Switch -->
+      <div class="flex items-center gap-2 flex-wrap font-sans-ui">
+        <div class="relative">
+          <input
+            id="searchInput"
+            type="text"
+            placeholder="检索州郡 / 雄关 / 名将..."
+            class="w-40 sm:w-52 bg-[#120d09]/90 border border-[#6e522b] focus:border-[#d4a359] rounded pl-7 pr-2.5 py-1.5 text-xs text-[#f5ebd6] placeholder-[#8a7558] outline-none transition"
+          />
+          <svg class="w-3.5 h-3.5 text-[#a68a64] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z"/>
+          </svg>
+          <div id="searchDropdown" class="hidden absolute right-0 mt-1 w-64 max-h-64 overflow-y-auto bg-[#1b130d] border border-[#b8862d] rounded shadow-2xl z-50 divide-y divide-[#36281b]"></div>
+        </div>
+
+        <div class="hidden md:flex items-center bg-[#120d09] border border-[#5c4322] rounded p-0.5 text-[11px]">
+          <button data-preset="central" class="preset-btn px-2.5 py-1 rounded hover:bg-[#2a1f14] text-[#cbb694] transition">聚焦中原</button>
+          <button data-preset="north" class="preset-btn px-2.5 py-1 rounded hover:bg-[#2a1f14] text-[#cbb694] transition">九边漠北</button>
+          <button data-preset="all" class="preset-btn px-2.5 py-1 rounded bg-[#b8862d]/25 text-[#f7dfa8] font-medium transition">四夷全图</button>
+        </div>
+
+        <button id="themeToggleBtn" class="px-2.5 py-1.5 rounded bg-[#2c2015] hover:bg-[#3b2b1d] border border-[#8c6628] text-[#f5dfa6] text-xs font-medium transition flex items-center gap-1">
+          <span id="themeToggleLabel">切换：玄墨夜战图</span>
+        </button>
+
+        <button id="togglePanelBtn" class="lg:hidden px-2.5 py-1.5 rounded bg-[#9e1f16]/30 border border-[#d4a359]/50 text-[#f7e2b8] text-xs font-medium">
+          兵部卷宗
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 flex flex-col lg:flex-row max-w-[1640px] w-full mx-auto relative overflow-hidden">
+    
+    <!-- Map Viewport -->
+    <section class="relative flex-1 min-h-[500px] sm:min-h-[580px] lg:min-h-[700px] bg-[#dfd0b0] overflow-hidden flex flex-col">
+      
+      <!-- Decorative Traditional Corner Fretwork Borders -->
+      <div class="pointer-events-none absolute inset-2 border-2 border-[#5c4020]/50 z-10 rounded-sm">
+        <div class="absolute inset-1 border border-[#8c6628]/35"></div>
+      </div>
+
+      <!-- Floating Top-Left Layer Controls -->
+      <div class="absolute top-4 left-4 z-20 flex flex-wrap gap-1.5 max-w-[calc(100%-6rem)] font-sans-ui">
+        <button id="layerVoronoi" class="layer-toggle active px-2.5 py-1 rounded text-[11px] font-medium border border-[#8c6628] bg-[#1c140d]/90 text-[#f5dfa6] shadow-md backdrop-blur transition flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#d93829]"></span>疆域设色
+        </button>
+        <button id="layerTerrain" class="layer-toggle active px-2.5 py-1 rounded text-[11px] font-medium border border-[#8c6628] bg-[#1c140d]/90 text-[#f5dfa6] shadow-md backdrop-blur transition flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#3b6e52]"></span>山岳水系·长城
+        </button>
+        <button id="layerRoutes" class="layer-toggle active px-2.5 py-1 rounded text-[11px] font-medium border border-[#8c6628] bg-[#1c140d]/90 text-[#f5dfa6] shadow-md backdrop-blur transition flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#e67e22]"></span>朱批行军线
+        </button>
+        <button id="layerLabels" class="layer-toggle active px-2.5 py-1 rounded text-[11px] font-medium border border-[#8c6628] bg-[#1c140d]/90 text-[#f5dfa6] shadow-md backdrop-blur transition flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#d4af37]"></span>木牌城池签
+        </button>
+        <button id="layerGrid" class="layer-toggle active px-2.5 py-1 rounded text-[11px] font-medium border border-[#8c6628] bg-[#1c140d]/90 text-[#f5dfa6] shadow-md backdrop-blur transition flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#a38c6b]"></span>计里画方格
+        </button>
+      </div>
+
+      <!-- Floating Top-Right Zoom Controls -->
+      <div class="absolute top-4 right-4 z-20 flex flex-col gap-1 bg-[#1c140d]/90 border border-[#8c6628] rounded p-1 backdrop-blur shadow-xl font-sans-ui">
+        <button id="zoomInBtn" title="放大舆图" class="w-7 h-7 flex items-center justify-center rounded hover:bg-[#332417] text-[#f5dfa6] text-sm font-bold">+</button>
+        <button id="zoomOutBtn" title="缩小舆图" class="w-7 h-7 flex items-center justify-center rounded hover:bg-[#332417] text-[#f5dfa6] text-sm font-bold">−</button>
+        <button id="zoomResetBtn" title="复位全图" class="w-7 h-7 flex items-center justify-center rounded hover:bg-[#332417] text-[#d4a359] text-xs font-bold">⌖</button>
+      </div>
+
+      <!-- Loading Indicator -->
+      <div id="mapLoader" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#dfd0b0]/95 backdrop-blur-sm">
+        <div class="w-10 h-10 border-2 border-[#8c6628]/30 border-t-[#9e1f16] rounded-full animate-spin mb-3"></div>
+        <p class="font-serif-title text-sm text-[#3b2816] font-bold tracking-widest">正在铺展大乾职方司绢本山川舆图...</p>
+      </div>
+
+      <!-- D3 SVG Container -->
+      <div id="mapContainer" class="flex-1 w-full h-full relative">
+        <svg id="warMap" class="w-full h-full block"></svg>
+      </div>
+
+      <!-- Floating Hover Tooltip (Ancient Bamboo/Silk Scroll Card) -->
+      <div id="mapTooltip" class="hidden pointer-events-none fixed z-50 bg-[#1a120b]/95 border-2 border-[#b8862d] rounded px-3.5 py-2.5 shadow-2xl max-w-xs text-xs backdrop-blur-md"></div>
+
+      <!-- Bottom Stage Banner + Faction Legend -->
+      <div class="border-t-2 border-[#785622] bg-[#18110b]/95 px-3 sm:px-5 py-2.5 z-20 font-sans-ui">
+        <!-- Faction Filter Pills -->
+        <div id="factionLegend" class="flex flex-wrap items-center gap-1.5 mb-2.5"></div>
+
+        <!-- Timeline Controls -->
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2.5">
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="playPauseBtn" class="px-3.5 py-1.5 rounded bg-gradient-to-r from-[#9e1f16] to-[#b86b1b] hover:from-[#b5251b] hover:to-[#cc7a22] border border-[#e6b86a]/50 text-[#fff6e5] text-xs font-semibold shadow-lg flex items-center gap-1.5 transition">
+              <span id="playIcon">▶</span>
+              <span id="playText">自动推演</span>
+            </button>
+            <span id="stageBadge" class="font-serif-title text-xs font-bold px-2.5 py-1 rounded bg-[#b8862d]/20 text-[#f5d796] border border-[#b8862d]/50">
+              阶段 I
+            </span>
+          </div>
+
+          <div id="timelineSteps" class="flex-1 grid grid-cols-5 gap-1.5"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Tactical Intelligence Panel (兵部职方司卷宗) -->
+    <aside id="intelPanel" class="ancient-panel hidden lg:flex flex-col w-full lg:w-[380px] xl:w-[410px] border-t lg:border-t-0 lg:border-l-2 border-[#785622] max-h-[68vh] lg:max-h-[calc(100vh-60px)] overflow-y-auto shrink-0">
+      
+      <!-- Stage Overview Card -->
+      <div class="p-4 border-b border-[#4a351d]">
+        <div class="flex items-center justify-between gap-2 mb-1.5 font-sans-ui">
+          <span id="stageChapterTag" class="text-[11px] font-semibold text-[#e6b45a]">第1–199章</span>
+          <span id="stageHeroTitle" class="text-[11px] px-2 py-0.5 rounded bg-[#9e1f16]/30 text-[#f7b9b2] border border-[#c93b2b]/50 font-medium">壮丁 → 巴代统帅</span>
+        </div>
+        <h2 id="stageTitle" class="font-serif-title text-base font-bold text-[#fae8c8] mb-1.5 tracking-wide"></h2>
+        <p id="stageSummary" class="text-xs text-[#d6c5a9] leading-relaxed font-sans-ui"></p>
+      </div>
+
+      <!-- Power Balance Meter -->
+      <div class="p-4 border-b border-[#4a351d] font-sans-ui">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-serif-title text-xs font-bold tracking-wider text-[#e6c891]">天下九州四夷疆域比重</h3>
+          <span id="totalNodesLabel" class="text-[11px] text-[#a89274]">共 29 处重镇雄关</span>
+        </div>
+        <div id="powerStackedBar" class="h-3 w-full rounded overflow-hidden flex bg-[#0f0a06] border border-[#5c4322] mb-2.5 p-0.5 gap-0.5"></div>
+        <div id="powerBreakdown" class="grid grid-cols-2 gap-1.5 text-[11px]"></div>
+      </div>
+
+      <!-- Selected Node Inspector -->
+      <div id="nodeInspector" class="p-4 border-b border-[#4a351d] parchment-card m-3 rounded-lg">
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 id="inspName" class="font-serif-title text-lg font-bold text-[#fbe7c0]">上京城</h3>
+              <span id="inspType" class="text-[10px] px-1.5 py-0.5 rounded bg-[#362617] text-[#e3c693] border border-[#785622] font-sans-ui">皇都</span>
+            </div>
+            <p id="inspCoords" class="text-[11px] text-[#9c8464] mt-0.5 font-sans-ui"></p>
+          </div>
+          <span id="inspFactionBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded border font-serif-title"></span>
+        </div>
+        <p id="inspDesc" class="text-xs text-[#dfd0b8] leading-relaxed mb-3 font-sans-ui"></p>
+        <div class="space-y-1.5 text-[11px] font-sans-ui border-t border-[#4d3820] pt-2.5">
+          <div class="flex gap-2">
+            <span class="text-[#a8906e] shrink-0 w-16 font-medium">坐镇人物：</span>
+            <span id="inspChars" class="text-[#f5ead4]"></span>
+          </div>
+          <div class="flex gap-2">
+            <span class="text-[#a8906e] shrink-0 w-16 font-medium">驻防番号：</span>
+            <span id="inspForces" class="text-[#f2c46d] font-medium"></span>
+          </div>
+          <div class="flex gap-2">
+            <span class="text-[#a8906e] shrink-0 w-16 font-medium">本卷战史：</span>
+            <span id="inspStageEvent" class="text-[#e8dac3]"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Major Campaigns in Current Stage -->
+      <div class="px-4 pb-4 flex-1 font-sans-ui">
+        <div class="flex items-center justify-between mb-2.5">
+          <h3 class="font-serif-title text-xs font-bold tracking-wider text-[#e6c891]">本卷朱批用兵方略（点击定位）</h3>
+          <span class="text-[10px] text-[#9c8464]">动态行军线</span>
+        </div>
+        <div id="campaignList" class="space-y-2"></div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // =========================================================================
+    // 1. GROUNDED FACTION, STAGE, NODE, TERRAIN & CAMPAIGN DATA (Ch. 1 - 1335)
+    // =========================================================================
+    const FACTIONS = {
+      xiaochen: {
+        id: 'xiaochen',
+        name: '萧尘（战狼军）',
+        short: '萧尘·战狼',
+        seal: '萧',
+        color: '#b82519',       // 朱砂赤旗
+        nightColor: '#e03c2d',
+        fillOpacity: 0.36,
+        desc: '主角萧尘从庆云县壮丁起家，历任战狼营统领、镇国大将军、摄政王，统御战狼轻重骑、虎贲、龙啸、豹玄、玄武、巾帼营。'
+      },
+      imperial: {
+        id: 'imperial',
+        name: '大乾皇室',
+        short: '大乾皇室',
+        seal: '乾',
+        color: '#c98a1c',       // 帝王明黄/泥金
+        nightColor: '#e5a93c',
+        fillOpacity: 0.30,
+        desc: '建国271年的大乾朝廷。景泰帝毒发驾崩后，大皇子景云锐登基；后期“四皇子”登基，萧尘受封摄政王总揽朝纲。'
+      },
+      clans: {
+        id: 'clans',
+        name: '八大士族',
+        short: '八大士族',
+        seal: '阀',
+        color: '#6b3fa0',       // 紫绶门阀
+        nightColor: '#8b5cf6',
+        fillOpacity: 0.30,
+        desc: '以陈文言、崔万山、汝南李氏、方氏等为首的门阀士族，盘踞徐州延陵郡与朝堂中枢，后于通山平原及方党清算中覆灭。'
+      },
+      princes: {
+        id: 'princes',
+        name: '藩王势力',
+        short: '诸藩王',
+        seal: '藩',
+        color: '#235789',       // 石青藩镇
+        nightColor: '#3b82f6',
+        fillOpacity: 0.30,
+        desc: '以荣亲王（飞云军）、甘州王、果郡王为代表的拥兵藩镇，踞守冀州、甘州等地与萧尘及皇室逐鹿中原。'
+      },
+      hanfu: {
+        id: 'hanfu',
+        name: '幽州韩复',
+        short: '幽州韩复',
+        seal: '韩',
+        color: '#2d6e5e',       // 石绿边帅
+        nightColor: '#16a085',
+        fillOpacity: 0.32,
+        desc: '幽州边军统帅韩复，坐镇幽州城与芝宁关防线，老谋深算；第655章幽州易主，第787章重伤身亡。'
+      },
+      steppe: {
+        id: 'steppe',
+        name: '东胡 / 匈奴',
+        short: '漠北诸部',
+        seal: '胡',
+        color: '#a85518',       // 赭石苍狼
+        nightColor: '#d97706',
+        fillOpacity: 0.28,
+        desc: '北方游牧势力，包括东胡、匈奴王庭（呼延赞）、段氏部族（段天麟/段威）、宇文部族、邱林部族、赫连铁等，后期陆续归附或被击破。'
+      },
+      foreign: {
+        id: 'foreign',
+        name: '域外诸国',
+        short: '四夷邻邦',
+        seal: '夷',
+        color: '#525b66',       // 苍黛域外
+        nightColor: '#64748b',
+        fillOpacity: 0.24,
+        desc: '大乾周边邻邦：东北高句丽（后称臣划为一州）、东海倭国（后覆灭）、西域大月氏国（第1329章遣使入京议和）。'
+      }
+    };
+
+    const STAGES = [
+      {
+        id: 0,
+        badge: '阶段 I',
+        chapters: '第1–199章',
+        heroTitle: '壮丁 → 巴代统帅',
+        title: '边陲起兵 · 壮丁崛起',
+        summary: '萧尘穿越成庆云县槐树村壮丁，于芝宁关初战东胡、以青霉素救韩福隆、创立战狼营并拔除王家。随后入主巴郡、代郡，打通南云郡醉仙酿与精盐商道，整编龙啸、虎贲二军，大败东胡并驻兵居庸关外。'
+      },
+      {
+        id: 1,
+        badge: '阶段 II',
+        chapters: '第200–584章',
+        heroTitle: '代巴合郡 · 豹玄成军',
+        title: '潜龙入京 · 草原定鼎',
+        summary: '萧尘深入匈奴结盟左谷蠡王段天麟，扶持天地会并平定通州血衣教之乱；代巴二郡合为一郡，组建第三军豹玄军。上京城风云剧变，景泰帝毒发归天，大皇子登基；草原上邱林部族反覆，次公猎原归附萧尘。'
+      },
+      {
+        id: 2,
+        badge: '阶段 III',
+        chapters: '第585–957章',
+        heroTitle: '幽州之主 · 镇国大将军',
+        title: '破关夺幽 · 威震北疆',
+        summary: '第585章萧尘剑指幽州，破芝宁关、招降苏冉、围幽州城，击败韩复并全面接管幽州推行新政；朝廷敕封萧尘为镇国大将军。随后重返草原，于忽尔平原、呼贝拉草原连斩段威、赫连铁、孤兰支，收服独孤王霸。'
+      },
+      {
+        id: 3,
+        badge: '阶段 IV',
+        chapters: '第958–1188章',
+        heroTitle: '战狼重骑 · 决战中原',
+        title: '兵出徐冀 · 逐鹿中原',
+        summary: '萧尘于上京城研制炸药、组建巾帼营；王大山反于黑岩/黄塘（改名乘风郡），虎贲与豹玄军连克淮阳、常山、西河二郡。延陵郡博弈后，萧尘在通山平原以八万破十三万飞云军，击溃陈文言、崔万山，彻底打破士族藩王联手。'
+      },
+      {
+        id: 4,
+        badge: '阶段 V',
+        chapters: '第1189–1335章',
+        heroTitle: '摄政王 · 威加海内',
+        title: '摄政定鼎 · 四夷宾服',
+        summary: '萧尘迎立“四皇子”登基，受封摄政王并清算方党，总揽大乾军政。大军驰援南州、稳固并州，于南陵关（第1333–1335章）以重甲兵与炸药新军出关迎战。域外大月氏遣使议和，高句丽俯首划为一州，倭国覆灭。'
+      }
+    ];
+
+    // Ancient Regional Seal Watermarks (州域大篆底印)
+    const REGION_SEALS = [
+      { name: '幽州', sub: '北疆雄镇', coords: [118.4, 40.2] },
+      { name: '冀州', sub: '中枢膏腴', coords: [114.8, 37.8] },
+      { name: '并州', sub: '表里山河', coords: [111.8, 38.2] },
+      { name: '青州', sub: '东海屏藩', coords: [118.8, 36.3] },
+      { name: '徐州', sub: '一州抵三州', coords: [119.2, 33.2] },
+      { name: '南州', sub: '荆襄江汉', coords: [113.2, 29.4] },
+      { name: '甘州', sub: '河西咽喉', coords: [100.5, 39.2] },
+      { name: '漠北王庭', sub: '呼贝拉·忽尔平原', coords: [108.5, 45.2] },
+      { name: '东胡王庭', sub: '辽西苦寒之野', coords: [122.5, 45.0] },
+      { name: '西域諸國', sub: '大月氏疆域', coords: [91.5, 42.0] }
+    ];
+
+    // Ancient Sea Calligraphic Titles
+    const SEA_TITLES = [
+      { name: '渤 海', coords: [120.2, 38.6], size: 15 },
+      { name: '东 海 沧 溟', coords: [125.8, 32.2], size: 22 },
+      { name: '日本海 · 鲸波', coords: [133.5, 40.0], size: 17 },
+      { name: '南 溟', coords: [116.5, 21.5], size: 18 }
+    ];
+
+    // Major Ancient Rivers (大河/黄河、大江/长江、淮水、辽水、曲靖江、弱水)
+    const ANCIENT_RIVERS = [
+      {
+        name: '大河（黄河）',
+        labelCoords: [111.2, 35.0],
+        width: 2.8,
+        points: [
+          [97.5, 34.8], [100.5, 35.6], [103.8, 36.1], [106.0, 38.4],
+          [108.5, 40.7], [111.2, 40.2], [110.4, 36.5], [110.3, 34.6],
+          [113.6, 34.8], [115.5, 35.4], [117.0, 36.8], [118.8, 37.7]
+        ]
+      },
+      {
+        name: '大江（长江）',
+        labelCoords: [116.2, 30.6],
+        width: 3.0,
+        points: [
+          [99.0, 27.2], [103.0, 28.0], [106.5, 29.6], [109.5, 30.8],
+          [111.5, 30.7], [113.2, 29.5], [114.3, 30.6], [116.8, 30.5],
+          [118.8, 32.1], [121.5, 31.8]
+        ]
+      },
+      {
+        name: '淮水',
+        labelCoords: [116.5, 33.0],
+        width: 1.8,
+        points: [
+          [113.3, 32.4], [115.0, 32.5], [116.8, 32.9], [118.5, 33.4], [120.2, 34.0]
+        ]
+      },
+      {
+        name: '辽水',
+        labelCoords: [122.8, 42.1],
+        width: 1.9,
+        points: [
+          [118.5, 43.2], [121.5, 43.4], [123.5, 42.5], [122.6, 41.2], [121.8, 40.7]
+        ]
+      },
+      {
+        name: '曲靖江（草原界河）',
+        labelCoords: [112.5, 43.5],
+        width: 1.8,
+        points: [
+          [106.5, 43.2], [110.0, 43.9], [113.8, 43.6], [116.8, 44.3], [119.2, 45.2]
+        ]
+      }
+    ];
+
+    // Great Wall of Northern Daqian (大乾九边万里长城线)
+    const GREAT_WALL_POINTS = [
+      [98.8, 39.8], [102.5, 38.8], [106.5, 38.2], [109.8, 38.5],
+      [112.2, 39.5], [114.6, 40.3], [115.8, 40.4], [117.6, 40.5],
+      [119.5, 40.3], [120.8, 40.8]
+    ];
+
+    // Traditional Brushwork Mountain Ranges (青绿山水皴法群峰)
+    const MOUNTAIN_RANGES = [
+      { name: '燕山山脉', coords: [117.6, 40.8], peaks: 5, scale: 1.15 },
+      { name: '太行山脉', coords: [113.6, 37.5], peaks: 6, scale: 1.2 },
+      { name: '阴山·狼居胥', coords: [110.2, 41.4], peaks: 6, scale: 1.25 },
+      { name: '祁连山脉', coords: [99.2, 38.1], peaks: 5, scale: 1.2 },
+      { name: '秦岭·终南山', coords: [108.8, 33.8], peaks: 6, scale: 1.25 },
+      { name: '泰山·沂蒙', coords: [117.3, 36.2], peaks: 4, scale: 1.05 },
+      { name: '医巫闾·长白山', coords: [124.8, 41.8], peaks: 5, scale: 1.15 },
+      { name: '天山·葱岭', coords: [86.5, 43.0], peaks: 6, scale: 1.3 },
+      { name: '大别·巫山', coords: [110.5, 31.3], peaks: 4, scale: 1.05 }
+    ];
+
+    // 29 Grounded Map Nodes with [lon, lat]
+    const NODES = [
+      {
+        id: 'shangjing', name: '上京城', type: '皇都', coords: [116.4, 39.9], labelDir: 'left',
+        chars: '景泰帝、大皇子景云锐、四皇子、孙泰、三公主景梦晴',
+        forces: '皇城禁军、西厂暗卫、后期战狼重骑/学堂新军',
+        desc: '大乾王朝中枢皇都，牡丹坊、明月楼、御书房皆在此地，是朝堂权谋与皇位更迭的旋涡中心。',
+        owners: ['imperial', 'imperial', 'imperial', 'imperial', 'xiaochen'],
+        events: [
+          '景泰帝与八大士族、三皇子在朝堂暗流涌动。',
+          '第567-582章景泰帝毒发归天，大皇子在王大山策应下逼宫登基。',
+          '萧尘获封镇国大将军，于偏殿震慑荣亲王。',
+          '萧尘在此研制炸药、检阅巾帼营，并调兵遣将布局徐冀。',
+          '第1326-1327章“四皇子”登基，萧尘受封摄政王，清算方党。'
+        ]
+      },
+      {
+        id: 'zhining', name: '芝宁关', type: '雄关', coords: [119.5, 40.25], labelDir: 'right',
+        chars: '萧尘、王大山、韩福隆、成飞',
+        forces: '芝宁关边军、战狼营 → 战狼轻骑',
+        desc: '大乾北疆抗击东胡的第一道铁血雄关，萧尘从壮丁步入军旅、一战成名的起点。',
+        owners: ['hanfu', 'hanfu', 'xiaochen', 'xiaochen', 'xiaochen'],
+        events: [
+          '第34-180章东胡大军压境，芝宁关一度失守，萧尘救韩谨堂并驻军关外。',
+          '韩复借芝宁关牵制萧尘与景伯明，第481章萧尘在此活捉景伯明。',
+          '第597-618章萧尘挥师猛攻，叶无痕登城斩将，一举破关夺取幽州门户。',
+          '战狼轻骑二军自上京城穿过芝宁关驰援淮阳郡。',
+          '北疆大后方稳固通道，连通幽州与辽东防线。'
+        ]
+      },
+      {
+        id: 'qingyun', name: '庆云县·槐树村', type: '起家地', coords: [118.9, 40.75], labelDir: 'top',
+        chars: '萧尘、萧得禄、王猛、王珂',
+        forces: '战狼营起家班底',
+        desc: '萧尘穿越醒来之地，因大房算计被征为壮丁，后拔除地方豪强王家并占领王家矿洞。',
+        owners: ['xiaochen', 'xiaochen', 'xiaochen', 'xiaochen', 'xiaochen'],
+        events: [
+          '第1-94章萧尘被征壮丁，后带兵回村查明真相、拔除庆云县王家。',
+          '作为萧尘铁杆基本盘，持续提供兵源与矿产补给。',
+          '第626-628章萧尘重回槐树村过夜并为村落改名，推行还地于民。',
+          '成为战狼军稳固的北疆兵源与军工后方。',
+          '大乾新政示范县，百姓开智安居。'
+        ]
+      },
+      {
+        id: 'bajun', name: '巴郡（巴城）', type: '重镇', coords: [120.5, 41.3], labelDir: 'right',
+        chars: '萧尘、王子京、霍起、李青、赵龙',
+        forces: '十万民兵、龙啸军、虎贲军',
+        desc: '萧尘早期核心大本营，在此兴修农具（曲辕犁）、酿造醉仙酿、提炼细盐与仙女皂，建立强军基业。',
+        owners: ['xiaochen', 'xiaochen', 'xiaochen', 'xiaochen', 'xiaochen'],
+        events: [
+          '第120-179章萧尘入主巴城，收服十万民兵与霍起，锻打唐横刀大败东胡。',
+          '第457-465章代巴二郡合为一郡（新郡），组建第三军豹玄军。',
+          '作为北疆军工与粮饷核心，源源不断支援幽州与草原战事。',
+          '稳固北疆后勤基地，持续向中原输送精锐。',
+          '摄政王龙兴之地，北疆重镇。'
+        ]
+      },
+      {
+        id: 'daijun', name: '代郡', type: '边郡', coords: [114.2, 40.25], labelDir: 'left',
+        chars: '萧尘、莫知意、叶无痕',
+        forces: '代巴联军、豹玄军',
+        desc: '紧邻草原与居庸关的边塞要郡，与巴郡共同构成萧尘早期“代巴二郡”基本盘。',
+        owners: ['xiaochen', 'xiaochen', 'xiaochen', 'xiaochen', 'xiaochen'],
+        events: [
+          '萧尘势力向西延展，与巴郡形成犄角之势。',
+          '第449-458章代巴二郡忙碌备战，后正式合并为一郡。',
+          '作为连接居庸关与幽州的战略枢纽，保障草原用兵。',
+          '配合攻克西河郡与冀州北翼。',
+          '北方稳固腹地。'
+        ]
+      },
+      {
+        id: 'youzhou', name: '幽州城', type: '州治', coords: [118.2, 39.5], labelDir: 'right',
+        chars: '韩复、韩谨堂、苏冉、钱首德',
+        forces: '幽州府军 → 萧尘直属大军',
+        desc: '北方军事重镇，原为幽州大帅韩复根基；萧尘攻克后改制清查士族，成为争霸天下的核心根据地。',
+        owners: ['hanfu', 'hanfu', 'xiaochen', 'xiaochen', 'xiaochen'],
+        events: [
+          '韩复坐镇幽州，暗中布局一石五鸟，企图借东胡消耗萧尘。',
+          '幽州边军按兵不动，静观朝堂与草原风云。',
+          '第630-668章萧尘兵围幽州、招降苏冉，击败韩复后全面接管幽州并审判士族。',
+          '钱首德等文官坐镇治理，开办科考、充实官吏，成为伐冀总后方。',
+          '北疆首府，统筹辽东与草原政务。'
+        ]
+      },
+      {
+        id: 'juyong', name: '居庸关', type: '雄关', coords: [115.8, 40.55], labelDir: 'top',
+        chars: '萧尘、霍起、苏光',
+        forces: '居庸关边军、战狼骑兵',
+        desc: '大乾通往匈奴草原的咽喉要道，第197章起便由萧尘实际掌控商道与过关税，后期亦是冀州决战要隘。',
+        owners: ['xiaochen', 'xiaochen', 'xiaochen', 'xiaochen', 'xiaochen'],
+        events: [
+          '第188-197章萧尘收服居庸关众将，打通草原商道收取过关费。',
+          '萧尘率队出居庸关深入匈奴，展开草原外交与军事布局。',
+          '第923章萧尘率军入居庸关，统筹北路战局。',
+          '第1144-1153章再克居庸关防线，活捉苏光。',
+          '贯通草原与中原的战略通衢。'
+        ]
+      },
+      {
+        id: 'nanyun', name: '南云郡', type: '商镇', coords: [117.45, 39.0], labelDir: 'right',
+        chars: '王子京、王猛',
+        forces: '聚德楼商路网络',
+        desc: '紧邻幽州的繁华商业大郡，萧尘通过“醉仙酿”打开聚德楼销路、积累第一桶金的关键节点。',
+        owners: ['hanfu', 'hanfu', 'xiaochen', 'xiaochen', 'xiaochen'],
+        events: [
+          '第133-139章王子京带醉仙酿入关，在南云郡聚德楼大获成功。',
+          '商路暗网持续向萧尘输送银两与情报。',
+          '随幽州归降萧尘，纳入统一税收与军需体系。',
+          '第986章王猛返回南云郡策应玄武军南下作战。',
+          '北方重要财赋商贸中心。'
+        ]
+      },
+      {
+        id: 'changning', name: '昌宁郡', type: '郡城', coords: [116.5, 38.35], labelDir: 'left',
+        chars: '叶无痕',
+        forces: '天地会暗线、地方府军',
+        desc: '幽冀交界之地的战略郡城，叶无痕曾奉命前往此地执行暗线任务。',
+        owners: ['imperial', 'imperial', 'xiaochen', 'xiaochen', 'xiaochen'],
+        events: [
+          '大乾朝廷治下北方郡县，暗流涌动。',
+          '第316章剑客叶无痕抵达昌宁郡，串联江湖与军方情报。',
+          '随幽州大胜归入萧尘势力范围。',
+          '成为萧尘南下淮阳、冀州的兵站节点。',
+          '稳固的中原北翼郡治。'
+        ]
+      },
+      {
+        id: 'xinxing', name: '新兴郡', type: '惨烈之地', coords: [113.9, 38.85], labelDir: 'left',
+        chars: '三公主景梦晴、张永修',
+        forces: '天地会、西厂',
+        desc: '第233章遭屠城的重创之郡，亦是萧尘与三公主景梦晴达成合作、调任郡守的转折点。',
+        owners: ['imperial', 'imperial', 'imperial', 'xiaochen', 'xiaochen'],
+        events: [
+          '由大乾地方官府管辖。',
+          '第233-280章新兴郡被屠城，萧尘与三公主合作并调任新兴郡郡守，与张永修交锋。',
+          '在朝堂与藩王夹缝中逐步恢复民生。',
+          '随常山、冀州战事推进纳入萧尘治下。',
+          '休养生息，重归安宁。'
+        ]
+      },
+      {
+        id: 'tongzhou', name: '通州', type: '江湖乱局', coords: [117.1, 39.75], labelDir: 'bottom',
+        chars: '萧尘、孙义安、逸尘子、莫知意',
+        forces: '天地会、血衣教、三州边军',
+        desc: '紧邻京畿的重州，第376-432章爆发血衣教与正派联盟血战，萧尘在此打通任督二脉并手刃孙义安。',
+        owners: ['imperial', 'imperial', 'imperial', 'xiaochen', 'xiaochen'],
+        events: [
+          '大乾京畿东翼门户，西厂与朝廷势力交错。',
+          '第376-432章天地会入通州，萧尘血战血衣教、获青城派内力灌顶并杀孙义安。',
+          '景云锐登基后派兵弹压京畿周边。',
+          '随萧尘兵临京畿、决战冀州而全面归附。',
+          '拱卫上京城的东方重镇。'
+        ]
+      },
+      {
+        id: 'huaiyang', name: '淮阳郡', type: '必争之地', coords: [115.2, 35.8], labelDir: 'left',
+        chars: '方无为、赵龙、韩复、荣亲王',
+        forces: '虎贲军、豹玄军、飞云军',
+        desc: '连接幽冀与中原腹地的枢纽重镇，第774-782章及第1095-1118章均在此爆发惨烈攻防战。',
+        owners: ['princes', 'princes', 'hanfu', 'xiaochen', 'xiaochen'],
+        events: [
+          '中原腹地郡城，受藩王与士族渗透。',
+          '荣亲王与八大士族在此拉锯布防。',
+          '第774-787章萧尘夹击淮阳郡，韩复旧伤复发重伤身亡；后第917章方无为率军围城。',
+          '第1095-1118章虎贲军与豹玄军驰援淮阳，大破方无为并将其斩首回京。',
+          '萧尘控制中原的核心支撑点。'
+        ]
+      },
+      {
+        id: 'changshan', name: '常山郡', type: '战略要郡', coords: [114.2, 38.05], labelDir: 'left',
+        chars: '萧尘、幽州文官团',
+        forces: '战狼军团',
+        desc: '冀州西翼咽喉，第1037章前被萧尘新近攻克，急需大批官员赴任治理。',
+        owners: ['princes', 'princes', 'princes', 'xiaochen', 'xiaochen'],
+        events: [
+          '大乾冀州外围郡城，受藩王影响。',
+          '荣亲王势力在此驻防警戒幽州。',
+          '冀州前沿防线，与幽州大军对峙。',
+          '第1037章已被萧尘新打下来，抽调幽州科考官吏接管治理。',
+          '稳固的太行东麓重郡。'
+        ]
+      },
+      {
+        id: 'chengfeng', name: '乘风郡（黄塘）', type: '起义名郡', coords: [116.05, 37.35], labelDir: 'right',
+        chars: '王大山、王猛、王兴业',
+        forces: '玄武军、王大山旧部',
+        desc: '原黑岩县、黄塘县一带，第990-1037章王大山夜里起事反叛王家，王猛死守城门，战后改名“乘风郡”。',
+        owners: ['princes', 'princes', 'princes', 'xiaochen', 'xiaochen'],
+        events: [
+          '冀州王家势力的传统领地。',
+          '王家军兵马驻扎，排挤王大山。',
+          '成为荣亲王与冀州府军的前哨据点。',
+          '第990-1037章王大山内应反水，玄武军血战夺下黑岩、黄塘，活捉王兴业并改名乘风郡。',
+          '见证老卒忠义的中原重郡。'
+        ]
+      },
+      {
+        id: 'shanyang', name: '山阳县', type: '前线要塞', coords: [117.7, 38.4], labelDir: 'right',
+        chars: '王猛、王兴合',
+        forces: '虎贲军偏师',
+        desc: '幽州南下前哨，第742-772章山阳县生变，王猛于小旗镇大战王兴合。',
+        owners: ['hanfu', 'hanfu', 'xiaochen', 'xiaochen', 'xiaochen'],
+        events: [
+          '幽州南部县城，属韩复防区。',
+          '地方豪强盘踞，观望局势。',
+          '第742-772章山阳县生变，王猛设伏小旗镇击破王兴合，打通南下淮阳通道。',
+          '萧尘大军南征的稳固兵站。',
+          '幽州南翼安宁县治。'
+        ]
+      },
+      {
+        id: 'jizhou', name: '冀州城', type: '藩镇核心', coords: [115.05, 37.35], labelDir: 'left',
+        chars: '荣亲王、李开光、景云锐',
+        forces: '飞云军、冀州府军 → 战狼军',
+        desc: '大乾北方最富庶的州城之一，荣亲王坐镇于此并统领精锐飞云军，第1135-1188章爆发决定天下归属的冀州攻坚战。',
+        owners: ['princes', 'princes', 'princes', 'xiaochen', 'xiaochen'],
+        events: [
+          '大皇子与荣亲王势力交织，第166章萧尘已开始暗中布局冀州。',
+          '第550-556章冀州城内爆发飞云军之变，荣亲王趁势坐大。',
+          '荣亲王以冀州为本钱，与幽州萧尘、徐州士族三足对峙。',
+          '第1135-1188章萧尘亲临前线展开冀州攻坚战，大破飞云军并收降大量府军。',
+          '尽归摄政王萧尘节制，成为中原核心大州。'
+        ]
+      },
+      {
+        id: 'xihe', name: '西河郡', type: '门阀重郡', coords: [111.3, 37.1], labelDir: 'left',
+        chars: '姜氏家主、李氏家主、萧尘',
+        forces: '士族私兵 → 归降萧尘',
+        desc: '八大士族中姜、李两家的核心根基，第1133-1150章在萧尘大军压境下开城归降。',
+        owners: ['clans', 'clans', 'clans', 'xiaochen', 'xiaochen'],
+        events: [
+          '八大士族经营百年的西翼钱粮重地。',
+          '配合陈文言、崔万山在朝堂对抗皇室。',
+          '出兵牵制并州与草原南下通道。',
+          '第1133-1150章萧尘下令进攻西河郡，姜李两家见大势已去遣使开城归降。',
+          '并入萧尘西北防务体系。'
+        ]
+      },
+      {
+        id: 'tongshan', name: '通山平原', type: '决战古战场', coords: [116.4, 36.5], labelDir: 'right',
+        chars: '萧尘、霍起、刘虎、崔西山、陈文言、崔万山',
+        forces: '战狼重骑、玄武军、战狼轻骑 vs 十三万飞云军',
+        desc: '决定中原霸权的史诗级决战地！第1174-1187章萧尘以八万精锐对阵十三万敌军，战狼重骑入场围杀崔西山，陈文言与崔万山在此落幕。',
+        owners: ['princes', 'princes', 'princes', 'xiaochen', 'xiaochen'],
+        events: [
+          '冀州与青州之间的开阔平原要道。',
+          '藩王与士族联军往来通道。',
+          '双方斥候与前哨摩擦频发之地。',
+          '第1174-1187章八万对十三万大决战！霍起一打二，战狼重骑冲垮飞云军，陈崔二老杀青。',
+          '大捷碑林之地，彻底奠定萧尘中原霸主地位。'
+        ]
+      },
+      {
+        id: 'yanling', name: '延陵郡（徐州）', type: '士族祖庭', coords: [119.3, 32.6], labelDir: 'right',
+        chars: '陈文言、崔万山、陈韬、崔允谦、崔西山',
+        forces: '八大士族联军、徐州府军',
+        desc: '第1059章明言“这徐州一州之地，就比得上幽州、冀州加上并州三州”，乃八大士族真正的心脏。',
+        owners: ['clans', 'clans', 'clans', 'clans', 'xiaochen'],
+        events: [
+          '八大士族百年盘踞的江南财富与门阀中枢。',
+          '丞相陈文言与太傅崔万山遥控朝政的后盾。',
+          '与皇室、萧尘形成鼎立之势，暗中资助各方制衡北方。',
+          '第1059-1086章萧尘亲赴延陵郡与陈崔二老外交交锋，随后巾帼营先行入徐州布局。',
+          '陈崔落幕与方党清算后，徐州庞大财赋终归萧尘摄政体系。'
+        ]
+      },
+      {
+        id: 'bingzhou', name: '并州', type: '西北雄州', coords: [112.4, 38.0], labelDir: 'left',
+        chars: '萧尘、各路边将',
+        forces: '并州边军、西路防军',
+        desc: '大乾西北门户，与幽州、冀州并称北疆三州，第1282章围绕并州局势展开消耗战与防御部署。',
+        owners: ['imperial', 'imperial', 'imperial', 'princes', 'xiaochen'],
+        events: [
+          '大乾西北传统边镇，抗衡草原西翼。',
+          '朝廷与甘州王、士族在此暗中角力。',
+          '与幽州保持微妙平衡。',
+          '在荣亲王与士族合流期间局势动荡。',
+          '第1282章萧尘大军稳定并州局势，作为西向大月氏的战略后盾。'
+        ]
+      },
+      {
+        id: 'qingzhou', name: '青州', type: '东海大州', coords: [118.8, 36.6], labelDir: 'right',
+        chars: '韩复、赵大海',
+        forces: '青州府军、韩复余部',
+        desc: '位于幽州以南、徐州以北的东海重州，第604章韩复进攻青州受阻，直接导致幽州老巢被萧尘端掉。',
+        owners: ['imperial', 'imperial', 'hanfu', 'xiaochen', 'xiaochen'],
+        events: [
+          '大乾东部沿海富庶大州。',
+          '朝廷与士族争夺的东线粮仓。',
+          '第604章韩复亲率大军南攻青州受阻，第789章韩复死后青州局势剧变。',
+          '在淮阳与通山平原大捷后并入萧尘东方版图。',
+          '成为萧尘经略东海、覆灭倭国的前进基地。'
+        ]
+      },
+      {
+        id: 'ganzhou', name: '甘州', type: '西陲藩镇', coords: [100.4, 38.9], labelDir: 'bottom',
+        chars: '甘州王、甘州王世子',
+        forces: '甘州藩军',
+        desc: '扼守河西走廊的藩王重镇，甘州王世子曾入京试探萧尘（第306-313章）。',
+        owners: ['princes', 'princes', 'princes', 'princes', 'xiaochen'],
+        events: [
+          '甘州王拥兵自重，雄踞大乾西陲。',
+          '第306-467章甘州王及世子入京观望朝局，与萧尘暗中试探。',
+          '在大乾乱世中保持半独立割据态势。',
+          '与荣亲王、八大士族互相声援。',
+          '摄政王威震西陲，甘州纳入大乾统一西域战略通道。'
+        ]
+      },
+      {
+        id: 'nanzhou', name: '南州', type: '南方重州', coords: [113.5, 29.7], labelDir: 'right',
+        chars: '萧尘、赵大海、郭怀渊',
+        forces: '南州守军、萧尘援军',
+        desc: '大乾南方核心大州，第1202章、第1255章、第1331章多次向朝廷紧急请援，是后期南线主战场。',
+        owners: ['imperial', 'imperial', 'imperial', 'clans', 'xiaochen'],
+        events: [
+          '大乾南方安稳之地，受士族门阀影响深远。',
+          '为朝廷提供南方赋税。',
+          '暗中响应徐州八大士族号召。',
+          '北方战乱波及南方，防线开始吃紧。',
+          '第1202-1331章南州连番请援，萧尘派精锐南下驰援，稳定大乾南疆。'
+        ]
+      },
+      {
+        id: 'nanling', name: '南陵关', type: '最新前线', coords: [111.9, 31.3], labelDir: 'left',
+        chars: '萧尘、刘虎、六千重甲兵',
+        forces: '重甲步兵、炸药新军、战狼主力',
+        desc: '截至第1335章最新连载的最前线雄关！萧尘亲调六千重甲兵入城，于第1333-1335章爆发“南陵关之战”，出关迎战！',
+        owners: ['imperial', 'imperial', 'imperial', 'imperial', 'xiaochen'],
+        events: [
+          '大乾南疆险关，扼守南北通衢。',
+          '常年驻扎南疆卫戍部队。',
+          '朝廷南线防御节点。',
+          '战火尚未大规模波及此关。',
+          '第1299-1335章六千重甲兵入城、炸药稳定提升，爆发南陵关之战，萧尘下令出关迎战！'
+        ]
+      },
+      {
+        id: 'donghu', name: '东胡草原', type: '草原强敌', coords: [122.2, 44.5], labelDir: 'top',
+        chars: '哈尔呼、十七、米拉',
+        forces: '东胡铁骑 → 归附部族',
+        desc: '芝宁关外广袤的东胡游牧草原，早期东胡屡次南下屠村攻关，后被萧尘烧荒破敌并逐步收编。',
+        owners: ['steppe', 'steppe', 'steppe', 'xiaochen', 'xiaochen'],
+        events: [
+          '第23-176章东胡大军屡犯芝宁关，被萧尘以铁蒺藜与骑兵战术大败。',
+          '第443章萧尘深入东胡草原，东胡势力大衰。',
+          '受萧尘军威震慑，部分东胡部落开始内附。',
+          '第933-936章萧尘重返东胡草原，沿途小部落纷纷表忠心归顺。',
+          '彻底纳入大乾北疆牧场与骑兵募兵区。'
+        ]
+      },
+      {
+        id: 'xiongnu', name: '匈奴王庭·呼贝拉', type: '草原霸主', coords: [109.2, 44.2], labelDir: 'top',
+        chars: '呼延赞、段天麟、宇文连成、邱林达风、赫连铁、霍起',
+        forces: '王庭金骑、烈日铁骑、战狼轻骑',
+        desc: '匈奴诸部核心牧场，涵盖忽尔平原、呼贝拉草原、曲靖江。历经单于遇刺、王庭内乱，最终被萧尘与霍起彻底平定。',
+        owners: ['steppe', 'steppe', 'xiaochen', 'xiaochen', 'xiaochen'],
+        events: [
+          '第187-198章大乾与匈奴议和，草原分为段氏、宇文、邱林等大部族。',
+          '第499-559章单于呼延赞遇刺，次公猎原投靠萧尘，霍起在曲靖江扬威。',
+          '第820-929章忽尔平原杀段威、夜袭斩赫连铁，呼贝拉草原决战破孤兰支！',
+          '第1121章霍起归来，萧尘掌控草原新单于人选与战马命脉。',
+          '草原诸部尽数臣服，成为战狼重骑与轻骑的天然大牧场。'
+        ]
+      },
+      {
+        id: 'dayuezhi', name: '大月氏国', type: '西域强国', coords: [88.5, 41.6], labelDir: 'bottom',
+        chars: '大月氏国使团、萧尘',
+        forces: '西域诸部联军',
+        desc: '位于大乾西域之外的强大古国，第1329-1330章遣使团入上京城觐见摄政王萧尘，提出议和条件。',
+        owners: ['foreign', 'foreign', 'foreign', 'foreign', 'foreign'],
+        events: [
+          '西域强邦，与中原相隔万里。',
+          '观望大乾内乱，偶有商队往来。',
+          '萧尘平定匈奴草原后，西域诸国震动。',
+          '第965-966章萧尘开始布局周边各国。',
+          '第1329-1330章大月氏国使团入京朝觐，与摄政王萧尘谈判条件。'
+        ]
+      },
+      {
+        id: 'goguryeo', name: '高句丽（东州）', type: '东北属国', coords: [126.8, 39.2], labelDir: 'right',
+        chars: '高句丽王室、萧尘东征军',
+        forces: '高句丽守军 → 大乾边防一州',
+        desc: '位于辽东以东的半岛古国。在萧尘整军经武、横扫北疆后，高句丽“万世俯首称臣，划为一州之地”。',
+        owners: ['foreign', 'foreign', 'foreign', 'foreign', 'xiaochen'],
+        events: [
+          '盘踞东北半岛，窥伺大乾辽东边陲。',
+          '与东胡暗通款曲，坐观中原内耗。',
+          '萧尘夺取幽州后，对其形成强大军事威慑。',
+          '第965章萧尘战略布局周边各国，高句丽首当其冲。',
+          '慑于踏着铿锵步伐的神兵天降之师，万世俯首称臣，正式划为一州之地！'
+        ]
+      },
+      {
+        id: 'wa', name: '倭国', type: '东海岛国', coords: [136.5, 35.5], labelDir: 'right',
+        chars: '萧尘跨海远征军',
+        forces: '新式火器炸药部队',
+        desc: '隔海相望的东海岛国，长期滋扰沿海；萧尘造出新式军备、整合中原与高句丽后，渡海将其彻底覆灭。',
+        owners: ['foreign', 'foreign', 'foreign', 'foreign', 'xiaochen'],
+        events: [
+          '孤悬东海，屡有海盗滋扰大乾东疆。',
+          '趁大乾内乱之际暗中扩张海上势力。',
+          '萧尘整肃幽青二州海防，蓄势待发。',
+          '第965章列入萧尘周边战略清剿名单。',
+          '大军渡海东征，倭国灭！'
+        ]
+      }
+    ];
+
+    // Major Animated Campaign Routes per Stage
+    const CAMPAIGNS = [
+      [
+        { from: 'donghu', to: 'zhining', faction: 'steppe', name: '东胡叩关之战', desc: '第23-109章：东胡大军压境芝宁关并屠村，萧尘率战狼营浴血反击。' },
+        { from: 'zhining', to: 'bajun', faction: 'xiaochen', name: '出关入主巴郡', desc: '第119-129章：萧尘聚拢流民收编十万民兵，入主巴城建立根据地。' },
+        { from: 'bajun', to: 'nanyun', faction: 'xiaochen', name: '醉仙酿商道南通', desc: '第133-139章：王子京带醉仙酿入关，打通南云郡聚德楼财源。' },
+        { from: 'daijun', to: 'juyong', faction: 'xiaochen', name: '接管居庸关', desc: '第188-197章：萧尘收服居庸关边军，掌控草原商税命脉。' }
+      ],
+      [
+        { from: 'juyong', to: 'xiongnu', faction: 'xiaochen', name: '深入匈奴结盟段氏', desc: '第199-218章：萧尘带队入草原，会晤段天麟与宇文连成。' },
+        { from: 'shangjing', to: 'tongzhou', faction: 'xiaochen', name: '通州剿灭血衣教', desc: '第380-408章：萧尘护送百姓迁移，获内力灌顶并手刃孙义安。' },
+        { from: 'bajun', to: 'daijun', faction: 'xiaochen', name: '代巴合郡·组建豹玄', desc: '第457-465章：代巴二郡合一，战狼第三军“豹玄军”正式成军。' },
+        { from: 'xiongnu', to: 'xiongnu', faction: 'steppe', name: '王庭惊变与曲靖江之战', desc: '第499-541章：呼延赞遇刺，霍起助次公猎原在曲靖江力战莫阔。' }
+      ],
+      [
+        { from: 'bajun', to: 'zhining', faction: 'xiaochen', name: '破关夺幽州总攻', desc: '第585-656章：萧尘猛攻芝宁关、招降苏冉，围困并全面接管幽州城！' },
+        { from: 'youzhou', to: 'qingzhou', faction: 'hanfu', name: '韩复南攻青州受阻', desc: '第604-787章：韩复攻青州受挫回援不及，终重伤逝于淮阳战事。' },
+        { from: 'juyong', to: 'xiongnu', faction: 'xiaochen', name: '忽尔平原 & 呼贝拉决战', desc: '第820-909章：连斩段威、赫连铁、折罗盘哒，围剿孤兰支平定草原！' },
+        { from: 'youzhou', to: 'huaiyang', faction: 'xiaochen', name: '南下小旗镇与淮阳', desc: '第770-782章：王猛破山阳县，萧尘大军初围淮阳郡城。' }
+      ],
+      [
+        { from: 'chengfeng', to: 'huaiyang', faction: 'xiaochen', name: '乘风起事 & 斩方无为', desc: '第990-1118章：王大山反于黑岩黄塘，虎贲豹玄驰援淮阳大破方无为。' },
+        { from: 'youzhou', to: 'yanling', faction: 'xiaochen', name: '延陵郡外交博弈', desc: '第1041-1086章：巾帼营先入徐州，萧尘赴延陵郡与陈崔二老正面交锋。' },
+        { from: 'daijun', to: 'xihe', faction: 'xiaochen', name: '西河郡受降', desc: '第1133-1150章：姜李两家开城归降，剪除八大士族西北羽翼。' },
+        { from: 'jizhou', to: 'tongshan', faction: 'xiaochen', name: '冀州攻坚 & 通山决战', desc: '第1135-1188章：八万破十三万飞云军，战狼重骑围杀崔西山，陈崔落幕！' }
+      ],
+      [
+        { from: 'yanling', to: 'nanzhou', faction: 'xiaochen', name: '千里驰援南州', desc: '第1255-1331章：南州连番告急，摄政王萧尘调遣精锐南下平乱。' },
+        { from: 'nanzhou', to: 'nanling', faction: 'xiaochen', name: '南陵关重甲出关战', desc: '第1299-1335章：六千重甲兵配炸药新军进驻南陵关，出关迎战强敌！' },
+        { from: 'youzhou', to: 'goguryeo', faction: 'xiaochen', name: '高句丽称臣 · 倭国覆灭', desc: '全书大势：神兵天降横扫东疆，高句丽划为一州，东海倭国彻底覆灭。' },
+        { from: 'dayuezhi', to: 'shangjing', faction: 'foreign', name: '大月氏使团入京议和', desc: '第1329-1330章：西域大月氏国遣使团抵京，与摄政王萧尘共议和约。' }
+      ]
+    ];
+
+    // =========================================================================
+    // 2. APP STATE & THEME CONFIG
+    // =========================================================================
+    const state = {
+      stage: 0,
+      selectedNodeId: 'shangjing',
+      activeFactionFilter: null,
+      theme: 'silk', // 'silk' (宣和古绢舆图) | 'night' (玄墨夜战图)
+      layers: {
+        voronoi: true,
+        terrain: true,
+        routes: true,
+        labels: true,
+        grid: true
+      },
+      isPlaying: false,
+      playTimer: null,
+      worldData: null,
+      landGeo: null
+    };
+
+    const svg = d3.select('#warMap');
+    let gRoot, gOceanWaves, gGrid, gRipples, gLand, gVoronoi, gRegionSeals, gBorders, gTerrain, gRoutes, gNodes, gLabels, gHudOverlay;
+    let oceanRect;
+    let projection, pathGen, zoomBehavior;
+    let mapWidth = 960, mapHeight = 650;
+
+    function getFactionColor(fid) {
+      const f = FACTIONS[fid];
+      if (!f) return '#888';
+      return state.theme === 'silk' ? f.color : f.nightColor;
+    }
+
+    // =========================================================================
+    // 3. CUSTOM ANCIENT CARTOGRAPHY SVG GENERATORS
+    // =========================================================================
+    // Generate bespoke miniature architecture SVG markup per node type
+    function getAncientCityIconSVG(node, isSelected, color) {
+      const strokeCol = isSelected ? '#fff3c4' : '#23170d';
+      const sw = isSelected ? 1.6 : 1.1;
+
+      if (node.type === '皇都') {
+        // Double-eave Imperial Palace (重檐庑殿顶皇城)
+        return `
+          <g transform="scale(${isSelected ? 1.08 : 0.88})">
+            <circle r="13" fill="${color}" fill-opacity="0.22" stroke="${color}" stroke-width="1" stroke-dasharray="2 2"/>
+            <rect x="-9" y="1" width="18" height="6" rx="0.8" fill="${color}" stroke="${strokeCol}" stroke-width="${sw}"/>
+            <path d="M-11,1 L0,-4 L11,1 Z" fill="#d4a359" stroke="${strokeCol}" stroke-width="1"/>
+            <rect x="-6" y="-4" width="12" height="4" fill="#9e1f16" stroke="${strokeCol}" stroke-width="0.9"/>
+            <path d="M-9,-4 L0,-9.5 L9,-4 Z" fill="#e6b85c" stroke="${strokeCol}" stroke-width="${sw}"/>
+            <rect x="-1.8" y="3" width="3.6" height="4" rx="1.5" fill="#23170d"/>
+            <circle cx="0" cy="-10.5" r="1.3" fill="#fff0b3"/>
+          </g>
+        `;
+      }
+      if (node.type === '雄关' || node.type === '最新前线') {
+        // Fortified Mountain Pass Gatehouse (箭楼雄关雉堞)
+        return `
+          <g transform="scale(${isSelected ? 1.04 : 0.85})">
+            <path d="M-8,6 L-7,-1 L-9,-1 L-9,-3.5 L-6,-3.5 L-6,-1.8 L-3.5,-1.8 L-3.5,-3.5 L-1,-3.5 L-1,-1.8 L1,-1.8 L1,-3.5 L3.5,-3.5 L3.5,-1.8 L6,-1.8 L6,-3.5 L9,-3.5 L9,-1 L7,-1 L8,6 Z"
+                  fill="${color}" stroke="${strokeCol}" stroke-width="${sw}"/>
+            <path d="M-5,-3.5 L0,-7.5 L5,-3.5 Z" fill="#d4a359" stroke="${strokeCol}" stroke-width="1"/>
+            <path d="M-2.2,6 A2.2,2.8 0 0,1 2.2,6 Z" fill="#1c120a"/>
+          </g>
+        `;
+      }
+      if (node.type === '决战古战场' || node.type === '惨烈之地') {
+        // Crossed Halberds & War Shield (交锋双戟战盾)
+        return `
+          <g transform="scale(${isSelected ? 1.05 : 0.86})">
+            <line x1="-7" y1="6" x2="7" y2="-6" stroke="${strokeCol}" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="7" y1="6" x2="-7" y2="-6" stroke="${strokeCol}" stroke-width="2.2" stroke-linecap="round"/>
+            <polygon points="0,-7 5,-2 3,6 0,8 -3,6 -5,-2" fill="${color}" stroke="${strokeCol}" stroke-width="${sw}"/>
+            <circle cx="0" cy="0.5" r="2.2" fill="#f7dfa8"/>
+          </g>
+        `;
+      }
+      if (node.type === '草原强敌' || node.type === '草原霸主') {
+        // Steppe Royal Yurt & Wolf Banner (金顶王帐穹庐)
+        return `
+          <g transform="scale(${isSelected ? 1.02 : 0.85})">
+            <path d="M-7.5,5 L-7.5,0.5 Q0,-8 7.5,0.5 L7.5,5 Z" fill="${color}" stroke="${strokeCol}" stroke-width="${sw}"/>
+            <path d="M-7.5,0.5 Q0,2.2 7.5,0.5" fill="none" stroke="#f7dfa8" stroke-width="1"/>
+            <rect x="-2" y="1.5" width="4" height="3.5" fill="#23170d"/>
+            <circle cx="0" cy="-5.2" r="1.4" fill="#f7dfa8"/>
+          </g>
+        `;
+      }
+      if (node.type === '州治' || node.type === '藩镇核心' || node.type === '士族祖庭' || node.type === '重镇') {
+        // Walled Provincial Capital (重城谯楼)
+        return `
+          <g transform="scale(${isSelected ? 1.02 : 0.84})">
+            <rect x="-6.5" y="-2" width="13" height="7.5" rx="0.8" fill="${color}" stroke="${strokeCol}" stroke-width="${sw}"/>
+            <path d="M-8,-2 L0,-6.5 L8,-2 Z" fill="#d4a359" stroke="${strokeCol}" stroke-width="1"/>
+            <rect x="-2" y="2" width="4" height="3.5" rx="1" fill="#1c120a"/>
+            <circle cx="0" cy="-0.2" r="1.2" fill="#fff0b3"/>
+          </g>
+        `;
+      }
+      // Standard Walled Prefecture / County (城池方廓)
+      return `
+        <g transform="scale(${isSelected ? 1.0 : 0.80})">
+          <rect x="-5" y="-5" width="10" height="10" rx="1.5" fill="${color}" stroke="${strokeCol}" stroke-width="${sw}"/>
+          <rect x="-2.4" y="-2.4" width="4.8" height="4.8" fill="#f7e7c4" fill-opacity="0.85"/>
+        </g>
+      `;
+    }
+
+    // Draw Traditional Chinese Brushwork Mountain Cluster (古图青绿群峰皴法)
+    function renderMountainCluster(g, m) {
+      const p = projection(m.coords);
+      if (!p) return;
+      const sc = m.scale || 1;
+      const isSilk = state.theme === 'silk';
+      const bodyFill = isSilk ? 'url(#mountainGradSilk)' : 'url(#mountainGradNight)';
+      const strokeCol = isSilk ? '#3d3122' : '#64748b';
+      const labelCol = isSilk ? '#4a3822' : '#94a3b8';
+
+      const k = (svg.node() && d3.zoomTransform(svg.node()).k) || 1;
+      const mg = g.append('g')
+        .datum({ x: p[0], y: p[1], baseScale: sc * 0.85 })
+        .attr('class', 'mountain-cluster')
+        .attr('transform', `translate(${p[0]}, ${p[1]}) scale(${(sc * 0.85) / k})`)
+        .attr('opacity', isSilk ? 0.82 : 0.65);
+
+      // Back peaks
+      mg.append('path')
+        .attr('d', 'M-28,4 Q-18,-14 -10,4 M-4,4 Q6,-18 16,4 M8,4 Q20,-12 28,4')
+        .attr('fill', bodyFill)
+        .attr('stroke', strokeCol)
+        .attr('stroke-width', 1.1)
+        .attr('stroke-linejoin', 'round');
+
+      // Center main peak with inner ridge line (皴法脊线)
+      mg.append('path')
+        .attr('d', 'M-18,6 Q-5,-21 8,6 Z')
+        .attr('fill', bodyFill)
+        .attr('stroke', strokeCol)
+        .attr('stroke-width', 1.35)
+        .attr('stroke-linejoin', 'round');
+
+      mg.append('path')
+        .attr('d', 'M-5,-14 L-2,3 M-5,-14 L-9,1')
+        .attr('stroke', strokeCol)
+        .attr('stroke-width', 0.8)
+        .attr('opacity', 0.65);
+
+      // Cloud mist base line (山脚云气线)
+      mg.append('path')
+        .attr('d', 'M-30,6 Q0,8 30,6')
+        .attr('fill', 'none')
+        .attr('stroke', strokeCol)
+        .attr('stroke-width', 0.8)
+        .attr('stroke-dasharray', '4 2')
+        .attr('opacity', 0.6);
+
+      mg.append('text')
+        .attr('y', 15)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '9px')
+        .attr('font-weight', '600')
+        .attr('fill', labelCol)
+        .attr('letter-spacing', '1px')
+        .text(`▲ ${m.name}`);
+    }
+
+    // Draw Ancient Cartography HUD Overlay (罗盘司南、百里步尺、御览朱印、图题卷轴)
+    function renderAncientCartographyHUD() {
+      gHudOverlay.selectAll('*').remove();
+      const isSilk = state.theme === 'silk';
+      const inkCol = isSilk ? '#3b2816' : '#cbd5e1';
+      const subCol = isSilk ? '#6b4f32' : '#94a3b8';
+      const sealRed = isSilk ? '#a82016' : '#ef4444';
+
+      // 1. Traditional 24-Mountain Compass Rose (古法罗盘司南) - Bottom Left
+      const cx = 68, cy = mapHeight - 72;
+      const compass = gHudOverlay.append('g').attr('transform', `translate(${cx}, ${cy})`);
+
+      compass.append('circle').attr('r', 36).attr('fill', isSilk ? 'rgba(232,218,186,0.9)' : 'rgba(15,23,42,0.85)').attr('stroke', inkCol).attr('stroke-width', 1.4);
+      compass.append('circle').attr('r', 31).attr('fill', 'none').attr('stroke', subCol).attr('stroke-width', 0.7).attr('stroke-dasharray', '2 2');
+      compass.append('circle').attr('r', 20).attr('fill', 'none').attr('stroke', inkCol).attr('stroke-width', 0.8);
+
+      // 8-point star needles
+      const dirs = [
+        { deg: 0, label: '北·子', main: true },
+        { deg: 90, label: '东·卯', main: true },
+        { deg: 180, label: '南·午', main: true },
+        { deg: 270, label: '西·酉', main: true },
+        { deg: 45, label: '艮', main: false },
+        { deg: 135, label: '巽', main: false },
+        { deg: 225, label: '坤', main: false },
+        { deg: 315, label: '乾', main: false }
+      ];
+      dirs.forEach(d => {
+        const gDir = compass.append('g').attr('transform', `rotate(${d.deg})`);
+        if (d.main) {
+          gDir.append('polygon')
+            .attr('points', '0,-20 3.5,0 0,-3 -3.5,0')
+            .attr('fill', d.deg === 0 ? sealRed : inkCol);
+          gDir.append('text')
+            .attr('y', -23)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', '7.5px')
+            .attr('font-weight', '700')
+            .attr('fill', d.deg === 0 ? sealRed : inkCol)
+            .text(d.label.split('·')[0]);
+        } else {
+          gDir.append('line').attr('x1', 0).attr('y1', -12).attr('x2', 0).attr('y2', -19).attr('stroke', subCol).attr('stroke-width', 0.8);
+        }
+      });
+      compass.append('circle').attr('r', 3).attr('fill', '#b8862d').attr('stroke', inkCol).attr('stroke-width', 1);
+
+      // 2. Graphic Scale Bar (古制计里画方步尺：每格五百里) - Bottom Left next to compass
+      const sx = 122, sy = mapHeight - 54;
+      const scaleG = gHudOverlay.append('g').attr('transform', `translate(${sx}, ${sy})`);
+      scaleG.append('rect').attr('x', -6).attr('y', -18).attr('width', 136).attr('height', 32).attr('rx', 3)
+        .attr('fill', isSilk ? 'rgba(232,218,186,0.86)' : 'rgba(15,23,42,0.82)')
+        .attr('stroke', subCol).attr('stroke-width', 0.8);
+      scaleG.append('text').attr('x', 0).attr('y', -6).attr('font-size', '9px').attr('font-weight', '700').attr('fill', inkCol)
+        .text('计里画方尺（一格五百里）');
+      // Alternating scale segments
+      for (let i = 0; i < 4; i++) {
+        scaleG.append('rect')
+          .attr('x', i * 28)
+          .attr('y', 0)
+          .attr('width', 28)
+          .attr('height', 5)
+          .attr('fill', i % 2 === 0 ? inkCol : 'none')
+          .attr('stroke', inkCol)
+          .attr('stroke-width', 0.9);
+      }
+      scaleG.append('text').attr('x', 0).attr('y', 12).attr('font-size', '7.5px').attr('fill', subCol).text('零');
+      scaleG.append('text').attr('x', 56).attr('y', 12).attr('text-anchor', 'middle').attr('font-size', '7.5px').attr('fill', subCol).text('五百里');
+      scaleG.append('text').attr('x', 112).attr('y', 12).attr('text-anchor', 'end').attr('font-size', '7.5px').attr('fill', subCol).text('一千里');
+
+      // 3. Traditional Imperial Red Seals (朱文印鉴：大乾职方司 / 镇国大将军印) - Bottom Right
+      const rx = mapWidth - 82, ry = mapHeight - 92;
+      const sealG = gHudOverlay.append('g').attr('transform', `translate(${rx}, ${ry})`).attr('opacity', isSilk ? 0.82 : 0.65);
+      sealG.append('rect').attr('x', 0).attr('y', 0).attr('width', 58).attr('height', 64).attr('rx', 2)
+        .attr('fill', isSilk ? 'rgba(179,36,26,0.08)' : 'rgba(179,36,26,0.15)')
+        .attr('stroke', sealRed).attr('stroke-width', 2.2);
+      sealG.append('rect').attr('x', 3).attr('y', 3).attr('width', 52).attr('height', 58)
+        .attr('fill', 'none').attr('stroke', sealRed).attr('stroke-width', 0.8);
+      sealG.append('text').attr('x', 29).attr('y', 22).attr('text-anchor', 'middle').attr('class', 'font-calligraphy')
+        .attr('font-size', '16px').attr('fill', sealRed).text('镇国大将');
+      sealG.append('text').attr('x', 29).attr('y', 41).attr('text-anchor', 'middle').attr('class', 'font-calligraphy')
+        .attr('font-size', '16px').attr('fill', sealRed).text('军行辕印');
+      sealG.append('text').attr('x', 29).attr('y', 55).attr('text-anchor', 'middle')
+        .attr('font-size', '7.5px').attr('font-weight', '700').attr('fill', sealRed).text('乾国二百七十一载');
+    }
+
+    // =========================================================================
+    // 4. INITIALIZE D3 VECTOR MAP (1:50m East Asia + Ancient Silk Cartography)
+    // =========================================================================
+    async function initMap() {
+      const container = document.getElementById('mapContainer');
+      mapWidth = container.clientWidth || 960;
+      mapHeight = container.clientHeight || 650;
+
+      svg.attr('viewBox', `0 0 ${mapWidth} ${mapHeight}`);
+
+      const defs = svg.append('defs');
+
+      // 1. Silk / Aged Parchment Paper Grain Filter
+      const paperFilter = defs.append('filter').attr('id', 'ancientPaperGrain').attr('x', '0%').attr('y', '0%').attr('width', '100%').attr('height', '100%');
+      paperFilter.append('feTurbulence').attr('type', 'fractalNoise').attr('baseFrequency', '0.04').attr('numOctaves', '4').attr('result', 'noise');
+      paperFilter.append('feColorMatrix').attr('in', 'noise').attr('type', 'matrix')
+        .attr('values', '1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.065 0');
+
+      // 2. Ocean & Land Gradients for Silk Mode vs Night Mode
+      const oceanSilkGrad = defs.append('radialGradient').attr('id', 'oceanSilkGrad').attr('cx', '50%').attr('cy', '50%').attr('r', '75%');
+      oceanSilkGrad.append('stop').attr('offset', '0%').attr('stop-color', '#c5d1c8');
+      oceanSilkGrad.append('stop').attr('offset', '70%').attr('stop-color', '#aebdb4');
+      oceanSilkGrad.append('stop').attr('offset', '100%').attr('stop-color', '#94a69c');
+
+      const oceanNightGrad = defs.append('radialGradient').attr('id', 'oceanNightGrad').attr('cx', '50%').attr('cy', '50%').attr('r', '75%');
+      oceanNightGrad.append('stop').attr('offset', '0%').attr('stop-color', '#0f172a');
+      oceanNightGrad.append('stop').attr('offset', '100%').attr('stop-color', '#060911');
+
+      const landSilkGrad = defs.append('radialGradient').attr('id', 'landSilkGrad').attr('cx', '48%').attr('cy', '45%').attr('r', '68%');
+      landSilkGrad.append('stop').attr('offset', '0%').attr('stop-color', '#f2e6cc');
+      landSilkGrad.append('stop').attr('offset', '65%').attr('stop-color', '#e5d4b0');
+      landSilkGrad.append('stop').attr('offset', '100%').attr('stop-color', '#d2bc92');
+
+      // 3. Mountain Gradients (青绿山水石绿/赭墨渐变)
+      const mGradSilk = defs.append('linearGradient').attr('id', 'mountainGradSilk').attr('x1', '0%').attr('y1', '0%').attr('x2', '0%').attr('y2', '100%');
+      mGradSilk.append('stop').attr('offset', '0%').attr('stop-color', '#355e4b');
+      mGradSilk.append('stop').attr('offset', '60%').attr('stop-color', '#6e8c6d');
+      mGradSilk.append('stop').attr('offset', '100%').attr('stop-color', '#d8c6a0').attr('stop-opacity', '0.2');
+
+      const mGradNight = defs.append('linearGradient').attr('id', 'mountainGradNight').attr('x1', '0%').attr('y1', '0%').attr('x2', '0%').attr('y2', '100%');
+      mGradNight.append('stop').attr('offset', '0%').attr('stop-color', '#475569');
+      mGradNight.append('stop').attr('offset', '100%').attr('stop-color', '#1e293b').attr('stop-opacity', '0.2');
+
+      // 4. Ancient Wave Pattern for Sea (古图水波纹图案)
+      const wavePattern = defs.append('pattern').attr('id', 'seaWavePattern').attr('width', 40).attr('height', 20).attr('patternUnits', 'userSpaceOnUse');
+      wavePattern.append('path')
+        .attr('d', 'M 0 12 Q 10 5 20 12 T 40 12 M 10 18 Q 20 12 30 18')
+        .attr('fill', 'none')
+        .attr('stroke', '#5e7368')
+        .attr('stroke-width', 0.65)
+        .attr('opacity', 0.25);
+
+      // 5. Arrowhead markers per faction (both silk & night colors)
+      Object.values(FACTIONS).forEach(f => {
+        ['silk', 'night'].forEach(mode => {
+          const col = mode === 'silk' ? f.color : f.nightColor;
+          const marker = defs.append('marker')
+            .attr('id', `arrow-${f.id}-${mode}`)
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 7.5)
+            .attr('refY', 0)
+            .attr('markerWidth', 6.5)
+            .attr('markerHeight', 6.5)
+            .attr('orient', 'auto');
+          marker.append('path')
+            .attr('d', 'M0,-4.2L10,0L0,4.2L2.2,0Z')
+            .attr('fill', col);
+        });
+      });
+
+      defs.append('clipPath').attr('id', 'landClip');
+
+      // Base Ocean Rect
+      oceanRect = svg.append('rect')
+        .attr('width', mapWidth)
+        .attr('height', mapHeight)
+        .attr('fill', 'url(#oceanSilkGrad)');
+
+      // Map Zoomable Root Group
+      gRoot = svg.append('g').attr('class', 'map-root');
+      gOceanWaves = gRoot.append('g').attr('class', 'layer-ocean-waves');
+      gRipples = gRoot.append('g').attr('class', 'layer-ripples');
+      gLand = gRoot.append('g').attr('class', 'layer-land');
+      gVoronoi = gRoot.append('g').attr('class', 'layer-voronoi').attr('clip-path', 'url(#landClip)');
+      gRegionSeals = gRoot.append('g').attr('class', 'layer-region-seals').attr('clip-path', 'url(#landClip)');
+      gGrid = gRoot.append('g').attr('class', 'layer-grid');
+      gBorders = gRoot.append('g').attr('class', 'layer-borders');
+      gTerrain = gRoot.append('g').attr('class', 'layer-terrain');
+      gRoutes = gRoot.append('g').attr('class', 'layer-routes');
+      gNodes = gRoot.append('g').attr('class', 'layer-nodes');
+      gLabels = gRoot.append('g').attr('class', 'layer-labels');
+
+      // Subtle paper grain overlay & fixed HUD layer
+      svg.append('rect')
+        .attr('width', mapWidth)
+        .attr('height', mapHeight)
+        .attr('filter', 'url(#ancientPaperGrain)')
+        .attr('pointer-events', 'none');
+
+      gHudOverlay = svg.append('g').attr('class', 'layer-hud').attr('pointer-events', 'none');
+
+      // Projection centered on Central Plains / Northern Frontier
+      const baseScale = Math.min(mapWidth, mapHeight) * 1.24;
+      projection = d3.geoMercator()
+        .center([114.2, 37.2])
+        .scale(baseScale)
+        .translate([mapWidth / 2, mapHeight / 2]);
+
+      pathGen = d3.geoPath(projection);
+
+      // Counter-scale helper so icons, labels, mountains, watermarks & strokes keep constant screen size on zoom
+      function applyCounterScale(k) {
+        const inv = 1 / (k || 1);
+        gNodes.selectAll('g.node-marker')
+          .attr('transform', d => `translate(${d.x}, ${d.y}) scale(${inv})`);
+        gLabels.selectAll('g.node-label-group')
+          .attr('transform', d => `translate(${d.x}, ${d.y}) scale(${inv})`);
+        gTerrain.selectAll('g.mountain-cluster')
+          .attr('transform', d => `translate(${d.x}, ${d.y}) scale(${(d.baseScale || 0.85) * inv})`);
+        gTerrain.selectAll('text.river-label')
+          .attr('transform', d => `translate(${d.x}, ${d.y}) scale(${inv})`);
+        gTerrain.selectAll('path.river-casing')
+          .attr('stroke-width', d => (d.w + 2.2) * inv);
+        gTerrain.selectAll('path.river-main')
+          .attr('stroke-width', d => d.w * inv);
+        gTerrain.selectAll('path.river-shimmer')
+          .attr('stroke-width', 0.9 * inv);
+        gTerrain.selectAll('path.wall-base')
+          .attr('stroke-width', 3.2 * inv);
+        gTerrain.selectAll('path.wall-battlements')
+          .attr('stroke-width', 1.5 * inv)
+          .style('stroke-dasharray', `${4 * inv}px ${4 * inv}px`);
+        gRegionSeals.selectAll('g.region-seal-group')
+          .attr('transform', d => `translate(${d.x}, ${d.y}) scale(${inv})`);
+        gOceanWaves.selectAll('g.sea-title-group')
+          .attr('transform', d => `translate(${d.x}, ${d.y}) scale(${inv})`);
+        gVoronoi.selectAll('path.voronoi-cell')
+          .attr('stroke-width', 0.9 * inv)
+          .style('stroke-dasharray', `${5 * inv}px ${3 * inv}px`);
+        d3.select('#baseLandPath')
+          .attr('stroke-width', 1.2 * inv);
+        d3.select('#jiLiGridPath')
+          .attr('stroke-width', 0.55 * inv)
+          .style('stroke-dasharray', `${3 * inv}px ${3 * inv}px`);
+        d3.select('#countryBorderPath')
+          .attr('stroke-width', 0.7 * inv)
+          .style('stroke-dasharray', `${4 * inv}px ${3 * inv}px`);
+        gRipples.selectAll('.coastal-ripple').each(function(_, idx) {
+          const baseW = [7.5, 4.8, 2.6][idx] || 3;
+          d3.select(this).attr('stroke-width', baseW * inv);
+        });
+        gRoutes.selectAll('path.campaign-casing')
+          .attr('stroke-width', 4.2 * inv);
+        gRoutes.selectAll('path.campaign-arc')
+          .attr('stroke-width', 2.4 * inv)
+          .style('stroke-dasharray', `${10 * inv}px ${6 * inv}px`);
+      }
+      window.applyCounterScale = applyCounterScale;
+
+      // Zoom & Pan
+      zoomBehavior = d3.zoom()
+        .scaleExtent([0.65, 10])
+        .on('zoom', (event) => {
+          gRoot.attr('transform', event.transform);
+          applyCounterScale(event.transform.k);
+        });
+
+      svg.call(zoomBehavior);
+
+      try {
+        const world = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json');
+        state.worldData = world;
+        state.landGeo = topojson.feature(world, world.objects.land);
+        const borders = topojson.mesh(world, world.objects.countries, (a, b) => a !== b);
+
+        // Land ClipPath
+        defs.select('#landClip')
+          .append('path')
+          .datum(state.landGeo)
+          .attr('d', pathGen);
+
+        // Ocean wave pattern backdrop
+        gOceanWaves.append('rect')
+          .attr('x', -mapWidth)
+          .attr('y', -mapHeight)
+          .attr('width', mapWidth * 3)
+          .attr('height', mapHeight * 3)
+          .attr('fill', 'url(#seaWavePattern)');
+
+        // Sea Calligraphic Titles
+        SEA_TITLES.forEach(st => {
+          const p = projection(st.coords);
+          if (p) {
+            const sg = gOceanWaves.append('g')
+              .datum({ x: p[0], y: p[1] })
+              .attr('class', 'sea-title-group')
+              .attr('transform', `translate(${p[0]}, ${p[1]})`);
+            sg.append('text')
+              .attr('class', 'sea-title font-calligraphy')
+              .attr('text-anchor', 'middle')
+              .attr('font-size', `${st.size}px`)
+              .attr('letter-spacing', '6px')
+              .attr('opacity', 0.35)
+              .text(st.name);
+          }
+        });
+
+        // Multi-ring Ancient Coastal Ripples (古舆图海水江崖四重波纹线)
+        [7.5, 4.8, 2.6].forEach((strokeW, idx) => {
+          gRipples.append('path')
+            .datum(state.landGeo)
+            .attr('class', `coastal-ripple ripple-${idx}`)
+            .attr('d', pathGen)
+            .attr('fill', 'none')
+            .attr('stroke-width', strokeW)
+            .attr('stroke-linejoin', 'round');
+        });
+
+        // Base Landmass
+        gLand.append('path')
+          .datum(state.landGeo)
+          .attr('id', 'baseLandPath')
+          .attr('d', pathGen)
+          .attr('stroke-width', 1.2);
+
+        // Ji Li Hua Fang Grid (计里画方百里方格网)
+        const graticule = d3.geoGraticule().step([2.5, 2.5])();
+        gGrid.append('path')
+          .datum(graticule)
+          .attr('id', 'jiLiGridPath')
+          .attr('d', pathGen)
+          .attr('fill', 'none')
+          .attr('stroke-width', 0.55)
+          .attr('stroke-dasharray', '3 3');
+
+        // Historical Frontier Borders
+        gBorders.append('path')
+          .datum(borders)
+          .attr('id', 'countryBorderPath')
+          .attr('d', pathGen)
+          .attr('fill', 'none')
+          .attr('stroke-width', 0.7)
+          .attr('stroke-dasharray', '4 3');
+
+        document.getElementById('mapLoader').classList.add('hidden');
+        renderAll();
+      } catch (err) {
+        document.getElementById('mapLoader').innerHTML = `
+          <p class="text-xs text-red-700 font-bold px-4 text-center">舆图矢量地形加载失败，请检查网络连接后刷新重试。</p>
+        `;
+      }
+    }
+
+    // =========================================================================
+    // 5. RENDER MAP LAYERS (TERRAIN, RIVERS, WALL, VORONOI, ICONS, PLAQUES)
+    // =========================================================================
+    function renderAll() {
+      renderMapLayers();
+      renderAncientCartographyHUD();
+      renderFactionLegend();
+      renderTimeline();
+      renderStagePanel();
+      renderNodeInspector();
+      renderCampaignList();
+    }
+
+    function renderMapLayers() {
+      if (!state.landGeo) return;
+      const stageIdx = state.stage;
+      const filter = state.activeFactionFilter;
+      const isSilk = state.theme === 'silk';
+
+      // Apply Theme Colors to Base Layers
+      oceanRect.attr('fill', isSilk ? 'url(#oceanSilkGrad)' : 'url(#oceanNightGrad)');
+      gOceanWaves.selectAll('.sea-title').attr('fill', isSilk ? '#2f453b' : '#475569');
+
+      const rippleColors = isSilk
+        ? ['rgba(94, 118, 105, 0.22)', 'rgba(94, 118, 105, 0.36)', 'rgba(72, 92, 81, 0.55)']
+        : ['rgba(56, 189, 248, 0.06)', 'rgba(56, 189, 248, 0.12)', 'rgba(56, 189, 248, 0.22)'];
+      gRipples.selectAll('.coastal-ripple').each(function(_, i) {
+        d3.select(this).attr('stroke', rippleColors[i]);
+      });
+
+      d3.select('#baseLandPath')
+        .attr('fill', isSilk ? 'url(#landSilkGrad)' : '#131b29')
+        .attr('stroke', isSilk ? '#523a22' : '#334155');
+
+      d3.select('#jiLiGridPath')
+        .attr('stroke', isSilk ? 'rgba(92, 64, 32, 0.18)' : 'rgba(148, 163, 184, 0.10)');
+
+      d3.select('#countryBorderPath')
+        .attr('stroke', isSilk ? 'rgba(110, 74, 36, 0.35)' : 'rgba(212, 175, 55, 0.18)');
+
+      // 1. Voronoi Faction Territories (Clipped to Landmass with Brushstroke Borders)
+      const projectedNodes = NODES.map(n => {
+        const p = projection(n.coords);
+        return { node: n, x: p[0], y: p[1] };
+      });
+
+      const delaunay = d3.Delaunay.from(projectedNodes, d => d.x, d => d.y);
+      const voronoi = delaunay.voronoi([-mapWidth, -mapHeight, mapWidth * 2, mapHeight * 2]);
+
+      const cells = projectedNodes.map((d, i) => ({
+        node: d.node,
+        path: voronoi.renderCell(i)
+      }));
+
+      gVoronoi.style('display', state.layers.voronoi ? null : 'none');
+      gVoronoi.selectAll('path.voronoi-cell')
+        .data(cells, d => d.node.id)
+        .join('path')
+        .attr('class', 'voronoi-cell')
+        .attr('d', d => d.path)
+        .attr('fill', d => getFactionColor(d.node.owners[stageIdx]))
+        .attr('fill-opacity', d => {
+          const owner = d.node.owners[stageIdx];
+          const base = isSilk ? FACTIONS[owner].fillOpacity * 0.88 : FACTIONS[owner].fillOpacity;
+          if (!filter) return base;
+          return owner === filter ? Math.min(base + 0.22, 0.62) : 0.04;
+        })
+        .attr('stroke', d => isSilk ? 'rgba(68, 45, 22, 0.28)' : 'rgba(255, 255, 255, 0.08)')
+        .attr('stroke-width', 0.9)
+        .attr('stroke-dasharray', '5 3');
+
+      // 2. Ancient Province Seal Watermarks (州域大篆底印)
+      gRegionSeals.selectAll('*').remove();
+      if (state.layers.voronoi) {
+        REGION_SEALS.forEach(rs => {
+          const p = projection(rs.coords);
+          if (!p) return;
+          const sg = gRegionSeals.append('g')
+            .datum({ x: p[0], y: p[1] })
+            .attr('class', 'region-seal-group')
+            .attr('transform', `translate(${p[0]}, ${p[1]})`)
+            .attr('opacity', isSilk ? 0.22 : 0.14)
+            .attr('pointer-events', 'none');
+          sg.append('text')
+            .attr('text-anchor', 'middle')
+            .attr('class', 'font-calligraphy')
+            .attr('font-size', '22px')
+            .attr('fill', isSilk ? '#3b2410' : '#cbd5e1')
+            .attr('letter-spacing', '4px')
+            .text(rs.name);
+        });
+      }
+
+      // 3. Terrain Layer: Rivers, Mountain Ranges & Great Wall
+      gTerrain.style('display', state.layers.terrain ? null : 'none');
+      gTerrain.selectAll('*').remove();
+
+      if (state.layers.terrain) {
+        const curveGen = d3.line()
+          .x(d => projection(d)[0])
+          .y(d => projection(d)[1])
+          .curve(d3.curveCatmullRom.alpha(0.5));
+
+        // 3a. Major Rivers (黄河、长江、淮水、辽水、曲靖江)
+        ANCIENT_RIVERS.forEach(rv => {
+          const dPath = curveGen(rv.points);
+          // River bank casing
+          gTerrain.append('path')
+            .datum({ w: rv.width })
+            .attr('class', 'river-casing')
+            .attr('d', dPath)
+            .attr('fill', 'none')
+            .attr('stroke', isSilk ? 'rgba(62, 102, 112, 0.35)' : 'rgba(56, 189, 248, 0.2)')
+            .attr('stroke-width', rv.width + 2.2)
+            .attr('stroke-linecap', 'round');
+          // Main water channel
+          gTerrain.append('path')
+            .datum({ w: rv.width })
+            .attr('class', 'river-main')
+            .attr('d', dPath)
+            .attr('fill', 'none')
+            .attr('stroke', isSilk ? '#2b6cb0' : '#38bdf8')
+            .attr('stroke-width', rv.width)
+            .attr('stroke-linecap', 'round')
+            .attr('opacity', isSilk ? 0.72 : 0.65);
+          // Animated flow shimmer
+          gTerrain.append('path')
+            .attr('class', 'river-shimmer')
+            .attr('d', dPath)
+            .attr('fill', 'none')
+            .attr('stroke', isSilk ? '#cbe5ff' : '#bae6fd')
+            .attr('stroke-width', 0.9)
+            .attr('opacity', 0.55);
+
+          const lp = projection(rv.labelCoords);
+          if (lp) {
+            gTerrain.append('text')
+              .datum({ x: lp[0], y: lp[1] - 4 })
+              .attr('class', 'river-label')
+              .attr('transform', `translate(${lp[0]}, ${lp[1] - 4})`)
+              .attr('font-size', '9px')
+              .attr('font-style', 'italic')
+              .attr('font-weight', '600')
+              .attr('fill', isSilk ? '#234e70' : '#7dd3fc')
+              .attr('opacity', 0.85)
+              .text(`〰 ${rv.name}`);
+          }
+        });
+
+        // 3b. Great Wall of Northern Daqian (万里边墙雉堞线)
+        const wallPath = curveGen(GREAT_WALL_POINTS);
+        gTerrain.append('path')
+          .attr('class', 'wall-base')
+          .attr('d', wallPath)
+          .attr('fill', 'none')
+          .attr('stroke', isSilk ? '#3d2714' : '#94a3b8')
+          .attr('stroke-width', 3.2)
+          .attr('opacity', 0.75);
+        gTerrain.append('path')
+          .attr('class', 'wall-battlements')
+          .attr('d', wallPath)
+          .attr('fill', 'none')
+          .attr('stroke', isSilk ? '#d4b483' : '#e2e8f0')
+          .attr('stroke-width', 1.5)
+          .attr('stroke-dasharray', '4 4');
+
+        // 3c. Brushwork Mountain Ranges (青绿重峦叠嶂)
+        MOUNTAIN_RANGES.forEach(m => renderMountainCluster(gTerrain, m));
+      }
+
+      // 4. Grid Visibility
+      gGrid.style('display', state.layers.grid ? null : 'none');
+
+      // 5. Campaign Arcs (朱批行军大箭)
+      gRoutes.style('display', state.layers.routes ? null : 'none');
+      const stageCampaigns = CAMPAIGNS[stageIdx] || [];
+      const arcData = stageCampaigns.map((c, idx) => {
+        const src = NODES.find(n => n.id === c.from);
+        const dst = NODES.find(n => n.id === c.to);
+        const p1 = projection(src.coords);
+        const p2 = projection(dst.coords);
+        let dStr;
+        if (c.from === c.to) {
+          dStr = `M ${p1[0] - 13},${p1[1]} A 15,15 0 1,1 ${p1[0] + 13},${p1[1]}`;
+        } else {
+          const dx = p2[0] - p1[0];
+          const dy = p2[1] - p1[1];
+          const dr = Math.sqrt(dx * dx + dy * dy) * 1.22;
+          dStr = `M${p1[0]},${p1[1]}A${dr},${dr} 0 0,1 ${p2[0]},${p2[1]}`;
+        }
+        return { ...c, idx, dStr, color: getFactionColor(c.faction) };
+      });
+
+      // Outer glow/shadow for campaign routes
+      gRoutes.selectAll('path.campaign-casing')
+        .data(arcData, d => `casing-${stageIdx}-${d.idx}`)
+        .join('path')
+        .attr('class', 'campaign-casing')
+        .attr('d', d => d.dStr)
+        .attr('fill', 'none')
+        .attr('stroke', isSilk ? 'rgba(255, 245, 220, 0.7)' : 'rgba(0, 0, 0, 0.65)')
+        .attr('stroke-width', 4.2)
+        .attr('opacity', d => (!filter || d.faction === filter) ? 0.85 : 0.1);
+
+      gRoutes.selectAll('path.campaign-arc')
+        .data(arcData, d => `${stageIdx}-${d.idx}`)
+        .join('path')
+        .attr('class', 'campaign-arc')
+        .attr('d', d => d.dStr)
+        .attr('fill', 'none')
+        .attr('stroke', d => d.color)
+        .attr('stroke-width', 2.4)
+        .attr('marker-end', d => `url(#arrow-${d.faction}-${state.theme})`)
+        .attr('opacity', d => (!filter || d.faction === filter) ? 0.96 : 0.14)
+        .on('mouseenter', (event, d) => showTooltip(event, `
+          <div class="font-serif-title font-bold text-[#f7dfa8] text-sm mb-0.5">${d.name}</div>
+          <div class="text-[#dfd0b8] font-sans-ui leading-relaxed">${d.desc}</div>
+        `))
+        .on('mousemove', moveTooltip)
+        .on('mouseleave', hideTooltip);
+
+      // 6. Architectural City / Pass / Battlefield Icons
+      const nodeGroups = gNodes.selectAll('g.node-marker')
+        .data(projectedNodes, d => d.node.id)
+        .join(enter => {
+          const g = enter.append('g').attr('class', 'node-marker');
+          g.append('circle').attr('class', 'pulse-circle').attr('r', 10).attr('fill', 'none').attr('stroke-width', 1.8);
+          g.append('g').attr('class', 'arch-icon');
+          return g;
+        });
+
+      nodeGroups
+        .attr('transform', d => `translate(${d.x}, ${d.y})`)
+        .style('opacity', d => {
+          const owner = d.node.owners[stageIdx];
+          if (!filter) return 1;
+          return owner === filter ? 1 : 0.22;
+        })
+        .on('click', (event, d) => {
+          event.stopPropagation();
+          state.selectedNodeId = d.node.id;
+          renderMapLayers();
+          renderNodeInspector();
+          openMobilePanelIfNeeded();
+        })
+        .on('mouseenter', (event, d) => {
+          const ownerKey = d.node.owners[stageIdx];
+          const owner = FACTIONS[ownerKey];
+          const col = getFactionColor(ownerKey);
+          showTooltip(event, `
+            <div class="flex items-center justify-between gap-2 mb-1 border-b border-[#5c4322] pb-1">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm" style="background:${col}"></span>
+                <span class="font-serif-title font-bold text-sm text-[#fbe7c0]">${d.node.name}</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#332417] text-[#e3c693] font-sans-ui">${d.node.type}</span>
+            </div>
+            <div class="text-[11px] text-[#d6c5a9] mb-1 font-sans-ui">当前归属：<span style="color:${col}" class="font-bold">${owner.name}</span></div>
+            <div class="text-[11px] text-[#f0e2c8] font-sans-ui leading-snug">${d.node.events[stageIdx]}</div>
+          `);
+        })
+        .on('mousemove', moveTooltip)
+        .on('mouseleave', hideTooltip);
+
+      nodeGroups.select('.arch-icon')
+        .html(d => {
+          const isSelected = d.node.id === state.selectedNodeId;
+          const col = getFactionColor(d.node.owners[stageIdx]);
+          return getAncientCityIconSVG(d.node, isSelected, col);
+        });
+
+      nodeGroups.select('.pulse-circle')
+        .attr('stroke', d => getFactionColor(d.node.owners[stageIdx]))
+        .style('display', d => {
+          const isSelected = d.node.id === state.selectedNodeId;
+          const isMajor = (stageIdx === 4 && (d.node.id === 'nanling' || d.node.id === 'shangjing')) ||
+                          (stageIdx === 3 && (d.node.id === 'tongshan' || d.node.id === 'jizhou')) ||
+                          (stageIdx === 2 && d.node.id === 'youzhou') ||
+                          (stageIdx === 0 && d.node.id === 'zhining');
+          return (isSelected || isMajor) ? null : 'none';
+        });
+
+      // 7. Engraved Woodblock Cartouche Labels (古籍木牌题签框)
+      gLabels.style('display', state.layers.labels ? null : 'none');
+      const currentTransform = d3.zoomTransform(svg.node());
+      const invScale = 1 / (currentTransform.k || 1);
+
+      const labelGroups = gLabels.selectAll('g.node-label-group')
+        .data(projectedNodes, d => d.node.id)
+        .join('g')
+        .attr('class', 'node-label-group')
+        .attr('transform', d => `translate(${d.x}, ${d.y}) scale(${invScale})`)
+        .attr('opacity', d => (!filter || d.node.owners[stageIdx] === filter) ? 0.96 : 0.2);
+
+      labelGroups.each(function(d) {
+        const g = d3.select(this);
+        g.selectAll('*').remove();
+
+        const isSelected = d.node.id === state.selectedNodeId;
+        const ownerCol = getFactionColor(d.node.owners[stageIdx]);
+        const dir = d.node.labelDir || 'right';
+        const textLen = d.node.name.length * 10.5 + 10;
+        const boxH = 16;
+
+        let ox = 10, oy = -boxH / 2;
+        if (dir === 'left') { ox = -textLen - 10; oy = -boxH / 2; }
+        else if (dir === 'top') { ox = -textLen / 2; oy = -23; }
+        else if (dir === 'bottom') { ox = -textLen / 2; oy = 9; }
+
+        // Woodblock / Parchment Plaque Background
+        g.append('rect')
+          .attr('x', ox)
+          .attr('y', oy)
+          .attr('width', textLen)
+          .attr('height', boxH)
+          .attr('rx', 2.5)
+          .attr('fill', isSelected
+            ? '#3b1d11'
+            : (isSilk ? 'rgba(247, 236, 212, 0.92)' : 'rgba(15, 23, 42, 0.88)'))
+          .attr('stroke', isSelected ? '#f5c453' : ownerCol)
+          .attr('stroke-width', isSelected ? 1.5 : 1);
+
+        // Left Faction Color Accent Strip
+        g.append('rect')
+          .attr('x', ox)
+          .attr('y', oy)
+          .attr('width', 3)
+          .attr('height', boxH)
+          .attr('fill', ownerCol);
+
+        g.append('text')
+          .attr('x', ox + textLen / 2 + 1)
+          .attr('y', oy + 11.5)
+          .attr('text-anchor', 'middle')
+          .attr('font-size', isSelected ? '10.5px' : '9.8px')
+          .attr('font-weight', isSelected ? '800' : '700')
+          .attr('fill', isSelected ? '#fff3c4' : (isSilk ? '#23170d' : '#f1f5f9'))
+          .text(d.node.name);
+      });
+
+      if (window.applyCounterScale) {
+        window.applyCounterScale(currentTransform.k || 1);
+      }
+    }
+
+    // =========================================================================
+    // 6. UI COMPONENTS RENDERING
+    // =========================================================================
+    function renderFactionLegend() {
+      const el = document.getElementById('factionLegend');
+      const allActive = state.activeFactionFilter === null;
+      let html = `
+        <button data-faction="ALL" class="faction-pill px-2.5 py-1 rounded text-[11px] font-semibold border transition ${
+          allActive
+            ? 'bg-[#b8862d]/25 border-[#e6b85c] text-[#fbe7c0]'
+            : 'bg-[#120d09] border-[#4a351d] text-[#a8906e] hover:text-[#f3ead8]'
+        }">全部势力</button>
+      `;
+      Object.values(FACTIONS).forEach(f => {
+        const active = state.activeFactionFilter === f.id;
+        const col = getFactionColor(f.id);
+        html += `
+          <button data-faction="${f.id}" class="faction-pill px-2.5 py-1 rounded text-[11px] font-medium border transition flex items-center gap-1.5 ${
+            active
+              ? 'bg-[#2e2014] border-[#e6b85c] text-[#fff6e5] shadow'
+              : 'bg-[#120d09]/90 border-[#4a351d] text-[#d6c5a9] hover:border-[#8c6628]'
+          }">
+            <span class="w-3.5 h-3.5 rounded-sm flex items-center justify-center text-[9px] font-bold text-white shrink-0" style="background:${col}">${f.seal}</span>
+            <span>${f.short}</span>
+          </button>
+        `;
+      });
+      el.innerHTML = html;
+
+      el.querySelectorAll('.faction-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const fid = btn.dataset.faction;
+          state.activeFactionFilter = (fid === 'ALL' || state.activeFactionFilter === fid) ? null : fid;
+          renderFactionLegend();
+          renderMapLayers();
+        });
+      });
+    }
+
+    function renderTimeline() {
+      const container = document.getElementById('timelineSteps');
+      container.innerHTML = STAGES.map((s, idx) => {
+        const isCurrent = idx === state.stage;
+        return `
+          <button data-stage="${idx}" class="stage-step-btn text-left px-2.5 py-1.5 rounded border transition ${
+            isCurrent
+              ? 'bg-[#9e1f16]/30 border-[#e6b85c] text-[#fff2d6] shadow-inner'
+              : 'bg-[#120d09]/80 border-[#3d2b17] text-[#a8906e] hover:bg-[#24190f] hover:text-[#e8dac3]'
+          }">
+            <div class="text-[10px] font-bold ${isCurrent ? 'text-[#f5c453]' : 'text-[#7d674a]'}">${s.chapters}</div>
+            <div class="font-serif-title text-[11px] font-bold truncate">${s.title.split('·')[0].trim()}</div>
+          </button>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.stage-step-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          stopAutoPlay();
+          state.stage = Number(btn.dataset.stage);
+          renderAll();
+        });
+      });
+    }
+
+    function renderStagePanel() {
+      const s = STAGES[state.stage];
+      document.getElementById('stageBadge').textContent = s.badge;
+      document.getElementById('stageChapterTag').textContent = s.chapters;
+      document.getElementById('stageHeroTitle').textContent = s.heroTitle;
+      document.getElementById('stageTitle').textContent = s.title;
+      document.getElementById('stageSummary').textContent = s.summary;
+
+      const counts = {};
+      Object.keys(FACTIONS).forEach(k => counts[k] = 0);
+      NODES.forEach(n => {
+        counts[n.owners[state.stage]]++;
+      });
+
+      const total = NODES.length;
+      const barEl = document.getElementById('powerStackedBar');
+      const breakdownEl = document.getElementById('powerBreakdown');
+
+      const sortedFactions = Object.values(FACTIONS)
+        .map(f => ({ ...f, count: counts[f.id], col: getFactionColor(f.id) }))
+        .filter(f => f.count > 0)
+        .sort((a, b) => b.count - a.count);
+
+      barEl.innerHTML = sortedFactions.map(f => `
+        <div style="width:${(f.count / total * 100).toFixed(1)}%; background:${f.col}" title="${f.name}: ${f.count}处" class="h-full first:rounded-l last:rounded-r transition-all duration-500"></div>
+      `).join('');
+
+      breakdownEl.innerHTML = sortedFactions.map(f => `
+        <button data-fid="${f.id}" class="power-filter-row flex items-center justify-between px-2 py-1 rounded bg-[#140e09] hover:bg-[#261b11] border border-[#3d2b17] transition text-left">
+          <span class="flex items-center gap-1.5 truncate">
+            <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:${f.col}"></span>
+            <span class="text-[#dfd0b8] truncate">${f.short}</span>
+          </span>
+          <span class="font-bold text-[#fbe7c0]">${f.count} <span class="text-[10px] text-[#8c7556]">(${Math.round(f.count / total * 100)}%)</span></span>
+        </button>
+      `).join('');
+
+      breakdownEl.querySelectorAll('.power-filter-row').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const fid = btn.dataset.fid;
+          state.activeFactionFilter = state.activeFactionFilter === fid ? null : fid;
+          renderFactionLegend();
+          renderMapLayers();
+        });
+      });
+    }
+
+    function renderNodeInspector() {
+      const node = NODES.find(n => n.id === state.selectedNodeId) || NODES[0];
+      const ownerKey = node.owners[state.stage];
+      const owner = FACTIONS[ownerKey];
+      const col = getFactionColor(ownerKey);
+
+      document.getElementById('inspName').textContent = node.name;
+      document.getElementById('inspType').textContent = node.type;
+      document.getElementById('inspCoords').textContent = `职方司堪舆度分：北纬 ${node.coords[1].toFixed(2)}° · 东经 ${node.coords[0].toFixed(2)}°`;
+
+      const badge = document.getElementById('inspFactionBadge');
+      badge.textContent = owner.name;
+      badge.style.color = '#fff6e5';
+      badge.style.borderColor = col;
+      badge.style.backgroundColor = col;
+
+      document.getElementById('inspDesc').textContent = node.desc;
+      document.getElementById('inspChars').textContent = node.chars;
+      document.getElementById('inspForces').textContent = node.forces;
+      document.getElementById('inspStageEvent').textContent = node.events[state.stage];
+    }
+
+    function renderCampaignList() {
+      const list = CAMPAIGNS[state.stage] || [];
+      const el = document.getElementById('campaignList');
+      el.innerHTML = list.map(c => {
+        const col = getFactionColor(c.faction);
+        const src = NODES.find(n => n.id === c.from);
+        const dst = NODES.find(n => n.id === c.to);
+        return `
+          <button data-dst="${c.to}" class="campaign-item w-full text-left p-2.5 rounded bg-[#140e09]/90 hover:bg-[#261b11] border border-[#3d2b17] hover:border-[#b8862d] transition">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="font-serif-title text-xs font-bold text-[#fbe7c0]">${c.name}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold text-white shrink-0" style="background:${col}">${src.name.split('（')[0]} → ${dst.name.split('（')[0]}</span>
+            </div>
+            <p class="text-[11px] text-[#c7b597] leading-relaxed">${c.desc}</p>
+          </button>
+        `;
+      }).join('');
+
+      el.querySelectorAll('.campaign-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const dstId = btn.dataset.dst;
+          const node = NODES.find(n => n.id === dstId);
+          if (node) {
+            state.selectedNodeId = node.id;
+            focusOnCoords(node.coords, 2.25);
+            renderMapLayers();
+            renderNodeInspector();
+          }
+        });
+      });
+    }
+
+    // =========================================================================
+    // 7. INTERACTION HELPERS (Tooltip, Search, Zoom Presets, Theme, Auto-Play)
+    // =========================================================================
+    function showTooltip(event, html) {
+      const tt = document.getElementById('mapTooltip');
+      tt.innerHTML = html;
+      tt.classList.remove('hidden');
+      moveTooltip(event);
+    }
+
+    function moveTooltip(event) {
+      const tt = document.getElementById('mapTooltip');
+      const pad = 14;
+      let x = event.clientX + pad;
+      let y = event.clientY + pad;
+      if (x + 290 > window.innerWidth) x = event.clientX - 290;
+      if (y + 140 > window.innerHeight) y = event.clientY - 120;
+      tt.style.left = `${x}px`;
+      tt.style.top = `${y}px`;
+    }
+
+    function hideTooltip() {
+      document.getElementById('mapTooltip').classList.add('hidden');
+    }
+
+    function focusOnCoords(coords, scaleVal = 2.0) {
+      const p = projection(coords);
+      const transform = d3.zoomIdentity
+        .translate(mapWidth / 2, mapHeight / 2)
+        .scale(scaleVal)
+        .translate(-p[0], -p[1]);
+      svg.transition().duration(650).call(zoomBehavior.transform, transform);
+    }
+
+    function applyCameraPreset(preset) {
+      document.querySelectorAll('.preset-btn').forEach(b => {
+        b.classList.remove('bg-[#b8862d]/25', 'text-[#f7dfa8]', 'font-medium');
+        b.classList.add('text-[#cbb694]');
+      });
+      const activeBtn = document.querySelector(`.preset-btn[data-preset="${preset}"]`);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-[#b8862d]/25', 'text-[#f7dfa8]', 'font-medium');
+        activeBtn.classList.remove('text-[#cbb694]');
+      }
+
+      if (preset === 'central') {
+        focusOnCoords([115.6, 36.2], 2.1);
+      } else if (preset === 'north') {
+        focusOnCoords([116.2, 42.2], 1.75);
+      } else {
+        svg.transition().duration(650).call(zoomBehavior.transform, d3.zoomIdentity);
+      }
+    }
+
+    function stopAutoPlay() {
+      state.isPlaying = false;
+      if (state.playTimer) {
+        clearInterval(state.playTimer);
+        state.playTimer = null;
+      }
+      document.getElementById('playIcon').textContent = '▶';
+      document.getElementById('playText').textContent = '自动推演';
+    }
+
+    function toggleAutoPlay() {
+      if (state.isPlaying) {
+        stopAutoPlay();
+      } else {
+        state.isPlaying = true;
+        document.getElementById('playIcon').textContent = '⏸';
+        document.getElementById('playText').textContent = '暂停推演';
+        state.playTimer = setInterval(() => {
+          state.stage = (state.stage + 1) % STAGES.length;
+          renderAll();
+        }, 3200);
+      }
+    }
+
+    function openMobilePanelIfNeeded() {
+      if (window.innerWidth < 1024) {
+        const panel = document.getElementById('intelPanel');
+        panel.classList.remove('hidden');
+        panel.classList.add('flex');
+      }
+    }
+
+    // Wire up buttons
+    document.getElementById('playPauseBtn').addEventListener('click', toggleAutoPlay);
+    document.getElementById('zoomInBtn').addEventListener('click', () => svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.4));
+    document.getElementById('zoomOutBtn').addEventListener('click', () => svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.72));
+    document.getElementById('zoomResetBtn').addEventListener('click', () => applyCameraPreset('all'));
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => applyCameraPreset(btn.dataset.preset));
+    });
+
+    // Theme switcher (古绢舆图 <-> 玄墨夜战图)
+    document.getElementById('themeToggleBtn').addEventListener('click', () => {
+      state.theme = state.theme === 'silk' ? 'night' : 'silk';
+      document.getElementById('themeToggleLabel').textContent =
+        state.theme === 'silk' ? '切换：玄墨夜战图' : '切换：古绢设色图';
+      renderAll();
+    });
+
+    // Layer toggles
+    const layerMap = {
+      layerVoronoi: 'voronoi',
+      layerTerrain: 'terrain',
+      layerRoutes: 'routes',
+      layerLabels: 'labels',
+      layerGrid: 'grid'
+    };
+    Object.entries(layerMap).forEach(([btnId, key]) => {
+      document.getElementById(btnId).addEventListener('click', (e) => {
+        const btn = e.currentTarget;
+        state.layers[key] = !state.layers[key];
+        btn.classList.toggle('border-[#8c6628]', state.layers[key]);
+        btn.classList.toggle('text-[#f5dfa6]', state.layers[key]);
+        btn.classList.toggle('border-[#3d2b17]', !state.layers[key]);
+        btn.classList.toggle('text-[#7d674a]', !state.layers[key]);
+        renderMapLayers();
+      });
+    });
+
+    // Mobile panel toggle
+    document.getElementById('togglePanelBtn').addEventListener('click', () => {
+      const panel = document.getElementById('intelPanel');
+      panel.classList.toggle('hidden');
+      panel.classList.toggle('flex');
+    });
+
+    // Search filter
+    const searchInput = document.getElementById('searchInput');
+    const searchDropdown = document.getElementById('searchDropdown');
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.trim().toLowerCase();
+      if (!q) {
+        searchDropdown.classList.add('hidden');
+        return;
+      }
+      const matches = NODES.filter(n =>
+        n.name.toLowerCase().includes(q) ||
+        n.chars.toLowerCase().includes(q) ||
+        n.forces.toLowerCase().includes(q) ||
+        n.type.toLowerCase().includes(q)
+      );
+      if (matches.length === 0) {
+        searchDropdown.innerHTML = `<div class="px-3 py-2 text-xs text-[#9c8464]">未检索到匹配的州郡或人物</div>`;
+      } else {
+        searchDropdown.innerHTML = matches.map(n => {
+          const col = getFactionColor(n.owners[state.stage]);
+          return `
+            <button data-nid="${n.id}" class="search-hit w-full text-left px-3 py-2 hover:bg-[#2e2014] transition flex items-center justify-between gap-2">
+              <div>
+                <div class="text-xs font-bold text-[#fbe7c0]">${n.name} <span class="text-[10px] text-[#a8906e]">(${n.type})</span></div>
+                <div class="text-[10px] text-[#c7b597] truncate max-w-[180px]">${n.chars}</div>
+              </div>
+              <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:${col}"></span>
+            </button>
+          `;
+        }).join('');
+      }
+      searchDropdown.classList.remove('hidden');
+
+      searchDropdown.querySelectorAll('.search-hit').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const nid = btn.dataset.nid;
+          const node = NODES.find(n => n.id === nid);
+          if (node) {
+            state.selectedNodeId = nid;
+            focusOnCoords(node.coords, 2.3);
+            renderMapLayers();
+            renderNodeInspector();
+            openMobilePanelIfNeeded();
+          }
+          searchDropdown.classList.add('hidden');
+          searchInput.value = '';
+        });
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+        searchDropdown.classList.add('hidden');
+      }
+    });
+
+    window.addEventListener('load', initMap);
+  </script>
+</body>
+</html>
